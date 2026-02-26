@@ -1,180 +1,274 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Cigarette, Wine, Heart, Eye, Skull } from 'lucide-react';
-import './App.css'
+import { Skull, Plus, Calendar } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { dataService } from '../services/dataService';
+import AuthModal from '../components/AuthModal';
+import UserBadge from '../components/UserBadge';
+import Layout from '../components/layout/Layout';
+import TaskCard from '../components/tasks/TaskCard';
+import TaskModal from '../components/tasks/TaskModal';
+import { COLOR_OPTIONS, ICON_OPTIONS } from '../constants/taskOptions';
+import { formatDateTimeLocal } from '../utils/formatTime';
 
 const LastTimeSince = () => {
-  const timestamps = {
-    textedHer: new Date('2025-12-08 23:47:00').getTime(),
-    smokedJoint: new Date('2025-12-06 22:38:00').getTime(),
-    smokedCigarette: new Date('2025-12-22 18:38:00').getTime(),
-    drankAlcohol: new Date('2025-12-06 23:48:00').getTime(),
-    // talkedNiceToFather: new Date('2024-12-16 18:45:00').getTime(),
-    sawHer: new Date('2025-12-22 17:47:00').getTime()
-  };
-
+  const { user, loading: authLoading, signUp, signIn, signOut } = useAuth();
+  const [tasks, setTasks] = useState([]);
   const [elapsed, setElapsed] = useState({});
-  const [currentQuote, setCurrentQuote] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migratedCount, setMigratedCount] = useState(0);
+  const [editingId, setEditingId] = useState(null);
+  const [formLabel, setFormLabel] = useState('');
+  const [formDate, setFormDate] = useState('');
+  const [formColor, setFormColor] = useState(COLOR_OPTIONS[0]);
+  const [formIconIndex, setFormIconIndex] = useState(0);
 
-
-
-  const activities = [
-    { 
-      key: 'textedHer', 
-      label: 'i texted her', 
-      icon: MessageCircle, 
-      color: '#dc2626'
-    },
-    { 
-      key: 'sawHer', 
-      label: 'i saw her', 
-      icon: Eye, 
-      color: '#f43f5e'
-    },
-    { 
-      key: 'smokedJoint', 
-      label: 'i smoked joint', 
-      icon: Cigarette, 
-      color: '#10b981'
-    },
-    { 
-      key: 'smokedCigarette', 
-      label: 'i smoked cigarette', 
-      icon: Cigarette, 
-      color: '#6b7280'
-    },
-    { 
-      key: 'drankAlcohol', 
-      label: 'i drank alcohol', 
-      icon: Wine, 
-      color: '#9333ea'
-    },
-    // { 
-    //   key: 'talkedNiceToFather', 
-    //   label: 'i talked nice to father', 
-    //   icon: Heart, 
-    //   color: '#3b82f6'
-    // },
-  ];
+  useEffect(() => {
+    async function loadTasks() {
+      if (authLoading) return;
+      setLoading(true);
+      try {
+        const loadedTasks = await dataService.getTasks();
+        setTasks(loadedTasks);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTasks();
+  }, [user, authLoading]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const newElapsed = {};
-      Object.keys(timestamps).forEach(key => {
-        if (timestamps[key]) {
-          const diff = Date.now() - timestamps[key];
-          newElapsed[key] = diff;
-        }
+      tasks.forEach((task) => {
+        const ts = new Date(task.date).getTime();
+        if (ts) newElapsed[task.id] = Date.now() - ts;
       });
       setElapsed(newElapsed);
     }, 1000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [tasks]);
 
-
-
-  const formatTime = (ms) => {
-    if (!ms) return 'forever';
-    
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
+  const openAdd = () => {
+    setEditingId(null);
+    setFormLabel('');
+    const now = new Date();
+    now.setSeconds(0, 0);
+    setFormDate(formatDateTimeLocal(now.toISOString()));
+    setFormColor(COLOR_OPTIONS[tasks.length % COLOR_OPTIONS.length]);
+    setFormIconIndex(tasks.length % ICON_OPTIONS.length);
+    setModalOpen(true);
   };
 
+  const openEdit = (task) => {
+    setEditingId(task.id);
+    setFormLabel(task.label);
+    setFormDate(formatDateTimeLocal(task.date));
+    setFormColor(task.color);
+    setFormIconIndex(task.iconIndex ?? 0);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const label = formLabel.trim();
+    if (!label || !formDate) return;
+    const date = new Date(formDate).toISOString();
+    const color = formColor || COLOR_OPTIONS[0];
+    const iconIndex = formIconIndex ?? 0;
+
+    try {
+      if (editingId) {
+        const updated = await dataService.updateTask(editingId, { label, date, color, iconIndex });
+        setTasks((prev) => prev.map((t) => (t.id === editingId ? updated : t)));
+      } else {
+        const newTask = await dataService.addTask({ label, date, color, iconIndex });
+        setTasks((prev) => [...prev, newTask]);
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving task:', error);
+      alert('Failed to save task. Please try again.');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this task?')) {
+      try {
+        await dataService.deleteTask(id);
+        setTasks((prev) => prev.filter((t) => t.id !== id));
+      } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Failed to delete task. Please try again.');
+      }
+    }
+  };
+
+  const handleSignUp = async (email, password) => {
+    const { user: newUser, error } = await signUp(email, password);
+    if (newUser && !error) {
+      setMigrating(true);
+      try {
+        const result = await dataService.migrateLocalToCloud(newUser.id);
+        if (result.success) {
+          setMigratedCount(result.migrated || 0);
+          const loadedTasks = await dataService.getTasks();
+          setTasks(loadedTasks);
+          setTimeout(() => {
+            setMigrating(false);
+            setAuthModalOpen(false);
+            setMigratedCount(0);
+          }, 2000);
+        } else {
+          setMigrating(false);
+          return { error: result.error || 'Migration failed' };
+        }
+      } catch (error) {
+        setMigrating(false);
+        return { error: error.message || 'Migration failed' };
+      }
+    }
+    return { error };
+  };
+
+  const handleSignIn = async (email, password) => {
+    const { error } = await signIn(email, password);
+    if (!error) {
+      const loadedTasks = await dataService.getTasks();
+      setTasks(loadedTasks);
+    }
+    return { error };
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    const loadedTasks = await dataService.getTasks();
+    setTasks(loadedTasks);
+  };
+
+  if (authLoading || loading) {
+    return (
+      <Layout>
+        <div className="app-container">
+          <div className="loading-screen">
+            <div className="loading-spinner" />
+            <p>Loading...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <div className="app-container">
-      <div className="background-vignette" />
-      
-      <div className="animated-blobs">
-        <div className="blob blob-1" />
-        <div className="blob blob-2" />
-        <div className="blob blob-3" />
-      </div>
+    <Layout>
+      <div className="app-container">
+        <div className="background-vignette" />
+        <div className="animated-blobs">
+          <div className="blob blob-1" />
+          <div className="blob blob-2" />
+          <div className="blob blob-3" />
+        </div>
+        <div className="grain-overlay" />
 
-      <div className="grain-overlay" />
+        {!user && (
+          <div className="guest-banner">
+            {/* <div className="guest-banner-content">
+              <span className="guest-banner-icon">📱</span>
+              <span className="guest-banner-text">Using in Guest Mode - Data saved on this device only</span>
+            </div> */}
+          </div>
+        )}
 
-      <div className="content-wrapper">
-        <div className="skull-container">
-          <div className="skull-wrapper">
-            <Skull className="skull-icon" />
-            <div className="skull-ping">
-              <Skull className="skull-icon" />
+        <div className="user-badge-container">
+          <UserBadge user={user} onSignOut={handleSignOut} onOpenAuth={() => setAuthModalOpen(true)} />
+        </div>
+
+        <div className="content-wrapper">
+          <div className="skull-container">
+            <div className="skull-wrapper">
+              <Skull className="skull-icon" aria-hidden="false" />
+              <div className="skull-ping" aria-hidden="true" />
             </div>
           </div>
-        </div>
 
-        <div className="header">
-          <h1 className="title">
-            <div className="title-line-1">LAST TIME</div>
-            <div className="title-line-2">SINCE</div>
-          </h1>
-          
-          <div className="divider-container">
-            <div className="divider" />
+          <div className="header">
+            <h1 className="title">
+              <div className="title-line-1">LAST TIME</div>
+              <div className="title-line-2">SINCE</div>
+            </h1>
+            <div className="divider-container">
+              <div className="divider" />
+            </div>
+            <p className="header-sub">Track anything. Add and edit your own.</p>
           </div>
-        </div>
 
-        <div className="cards-grid">
-          {activities.map((activity) => {
-            const Icon = activity.icon;
-            const timeElapsed = elapsed[activity.key];
-            
-            return (
-              <div
-                key={activity.key}
-                className="card"
-                style={{
-                  background: `linear-gradient(135deg, ${activity.color}40 0%, ${activity.color}10 50%, #000 100%)`,
-                  boxShadow: `0 0 60px -15px ${activity.color}80`
-                }}
-              >
-                <div className="card-overlay" />
-                <div className="card-gradient" />
-                
-                <div className="card-content">
-                  <div className="icon-container">
-                    <div className="icon-wrapper">
-                      <Icon className="activity-icon" style={{color: activity.color}} />
-                      <div className="icon-ping" />
-                    </div>
-                  </div>
+          <div className="actions-bar">
+            <button type="button" className="btn-add" onClick={openAdd}>
+              <Plus className="btn-add-icon" />
+              <span>Add task</span>
+              <Calendar className="btn-add-cal" />
+            </button>
+          </div>
 
-                  <h3 className="activity-label">{activity.label}</h3>
+          <div className="cards-grid">
+            {tasks.map((task) => (
+              <TaskCard key={task.id} task={task} elapsed={elapsed} onEdit={openEdit} onDelete={handleDelete} />
+            ))}
+          </div>
 
-                  <div className="time-display">
-                    <div className="time-value" style={{color: activity.color}}>
-                      {formatTime(timeElapsed)}
-                    </div>
-                    <div className="time-suffix">of suffering</div>
-                  </div>
-
-                  <div className="card-bottom-line" style={{background: `linear-gradient(to right, transparent, ${activity.color}60, transparent)`}} />
-                </div>
+          <div className="footer page-hero-footer">
+            <div className="neon-container">
+              <div className="neon-flicker">
+                <span className="neon-text">LAST</span>
+                <span className="neon-text neon-delay">TIME</span>
               </div>
-            );
-          })}
-        </div>
-
-        <div className="footer">
-          <div className="neon-container">
-            <div className="neon-flicker">
-              <span className="neon-text">FUCK</span>
-              <span className="neon-text neon-delay">OFF</span>
+              <div className="neon-glow-bg" />
             </div>
-            <div className="neon-glow-bg"></div>
           </div>
         </div>
-      </div>
 
-      <div className="corner-accent corner-top-right" />
-      <div className="corner-accent corner-bottom-left" />
-    </div>
+        <div className="corner-accent corner-top-right" />
+        <div className="corner-accent corner-bottom-left" />
+
+        <TaskModal
+          isOpen={modalOpen}
+          onClose={closeModal}
+          onSubmit={handleSubmit}
+          editingId={editingId}
+          formLabel={formLabel}
+          setFormLabel={setFormLabel}
+          formDate={formDate}
+          setFormDate={setFormDate}
+          formColor={formColor}
+          setFormColor={setFormColor}
+          formIconIndex={formIconIndex}
+          setFormIconIndex={setFormIconIndex}
+        />
+
+        <AuthModal
+          isOpen={authModalOpen}
+          onClose={() => {
+            setAuthModalOpen(false);
+            setMigrating(false);
+            setMigratedCount(0);
+          }}
+          onSignUp={handleSignUp}
+          onSignIn={handleSignIn}
+          onContinueAsGuest={() => {}}
+          migrating={migrating}
+          migratedCount={migratedCount}
+        />
+      </div>
+    </Layout>
   );
 };
 

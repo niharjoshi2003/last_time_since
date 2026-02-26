@@ -1,70 +1,194 @@
-# Getting Started with Create React App
+# Last Time Since
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A personal "time since" tracker built with React. Track how long it's been since you did something, with optional cloud sync across devices.
+
+## Features
+
+- ✅ **Guest Mode** - Works immediately without signup (uses localStorage)
+- ✅ **Cloud Sync** - Optional Supabase integration for cross-device access
+- ✅ **Add/Edit/Delete Tasks** - Full CRUD operations
+- ✅ **Live Countdown** - Real-time elapsed time updates every second
+- ✅ **Custom Colors & Icons** - Personalize each task
+- ✅ **Seamless Migration** - Auto-migrate localStorage tasks to cloud on signup
+
+## Quick Start (Guest Mode)
+
+The app works immediately without any setup:
+
+```bash
+npm install
+npm start
+```
+
+Open [http://localhost:3000](http://localhost:3000) - you can start tracking right away!
+
+## Cloud Sync Setup (Optional)
+
+To enable cross-device sync, set up Supabase:
+
+### 1. Create Supabase Project
+
+1. Go to [https://supabase.com](https://supabase.com)
+2. Create a new project
+3. Wait for the project to finish provisioning
+
+### 2. Set Up Database Schema
+
+1. In Supabase Dashboard, go to **SQL Editor**
+2. Copy the contents of `supabase-schema.sql`
+3. Paste and run it in the SQL Editor
+4. This creates the `tasks` table with Row Level Security policies
+
+### 3. Configure Environment Variables
+
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Get your Supabase credentials:
+   - Go to **Settings** → **API** in Supabase Dashboard
+   - Copy your **Project URL** (e.g., `https://xxxxx.supabase.co`)
+   - Copy your **anon/public key**
+
+3. Update `.env`:
+   ```env
+   REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+   REACT_APP_SUPABASE_ANON_KEY=your-anon-key-here
+   ```
+
+4. Restart the dev server:
+   ```bash
+   npm start
+   ```
+
+### 4. Test Authentication
+
+1. Click **"Save to Cloud"** button (top-right)
+2. Sign up with email/password
+3. Your localStorage tasks will automatically migrate to the cloud
+4. Sign in on another device to see your synced tasks!
+
+## Project Structure
+
+```
+src/
+├── pages/
+│   ├── Last_Time_since.jsx  # Main component
+│   └── App.css              # Styles
+├── components/
+│   ├── AuthModal.jsx        # Sign up/sign in modal
+│   └── UserBadge.jsx        # User indicator
+├── hooks/
+│   └── useAuth.js           # Authentication hook
+├── services/
+│   └── dataService.js       # Data abstraction layer
+└── config/
+    └── supabase.js          # Supabase client config
+```
+
+## How It Works
+
+### Guest Mode (Default)
+- Uses browser `localStorage`
+- No account required
+- Data stays on your device
+- Works offline
+
+### Cloud Mode (Optional)
+- Uses Supabase PostgreSQL database
+- Requires free account
+- Syncs across devices
+- Automatic backup
+
+### Data Migration
+When you sign up:
+1. Your localStorage tasks are automatically detected
+2. They're migrated to Supabase
+3. localStorage is cleared
+4. Future changes sync to cloud
 
 ## Available Scripts
 
-In the project directory, you can run:
-
 ### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Runs the app in development mode at [http://localhost:3000](http://localhost:3000)
 
 ### `npm run build`
+Builds the app for production to the `build` folder
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### `npm test`
+Launches the test runner
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Environment Variables
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `REACT_APP_SUPABASE_URL` | Your Supabase project URL | Only for cloud sync |
+| `REACT_APP_SUPABASE_ANON_KEY` | Your Supabase anon/public key | Only for cloud sync |
 
-### `npm run eject`
+**Note:** The app works in guest mode without these variables. They're only needed for cloud sync.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Database Schema
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The `tasks` table structure:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `id` - UUID primary key
+- `user_id` - UUID foreign key to `auth.users`
+- `label` - Task description (e.g., "i texted her")
+- `last_done` - Timestamp of when it last happened
+- `color` - Hex color code
+- `icon_index` - Index of icon in ICON_OPTIONS array
+- `created_at` - Auto-generated timestamp
+- `updated_at` - Auto-updated timestamp
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Row Level Security (RLS) ensures users can only access their own tasks.
 
-## Learn More
+## Deployment
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Vercel / Netlify
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Push your code to GitHub
+2. Import the repository in Vercel/Netlify
+3. Add environment variables:
+   - `REACT_APP_SUPABASE_URL`
+   - `REACT_APP_SUPABASE_ANON_KEY`
+4. Deploy!
 
-### Code Splitting
+### Static Hosting
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```bash
+npm run build
+```
 
-### Analyzing the Bundle Size
+Upload the `build` folder contents to any static host. Guest mode will work, but cloud sync requires environment variables to be set.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Troubleshooting
 
-### Making a Progressive Web App
+### "Supabase not configured" warning
+- This is normal in guest mode
+- Add `.env` file with Supabase credentials to enable cloud sync
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Tasks not syncing
+- Check that environment variables are set correctly
+- Verify Supabase project is active
+- Check browser console for errors
 
-### Advanced Configuration
+### Migration failed
+- Check Supabase dashboard for errors
+- Verify database schema is set up correctly
+- Tasks remain in localStorage if migration fails
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Tech Stack
 
-### Deployment
+- **React 19** - UI framework
+- **Supabase** - Backend (PostgreSQL + Auth)
+- **Lucide React** - Icons
+- **localStorage** - Guest mode storage
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## License
 
-### `npm run build` fails to minify
+MIT
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Support
+
+For issues or questions, check the console logs or Supabase dashboard for error details.
