@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Skull, Plus, Calendar } from 'lucide-react';
+import { Skull, Plus, Calendar, Folder } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { dataService } from '../services/dataService';
 import AuthModal from '../components/AuthModal';
@@ -7,38 +7,68 @@ import UserBadge from '../components/UserBadge';
 import Layout from '../components/layout/Layout';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskModal from '../components/tasks/TaskModal';
+import FolderList from '../components/folders/FolderList';
+import FolderModal from '../components/folders/FolderModal';
 import { COLOR_OPTIONS, ICON_OPTIONS } from '../constants/taskOptions';
 import { formatDateTimeLocal } from '../utils/formatTime';
 
 const LastTimeSince = () => {
   const { user, loading: authLoading, signUp, signIn, signOut } = useAuth();
   const [tasks, setTasks] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
   const [elapsed, setElapsed] = useState({});
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [migratedCount, setMigratedCount] = useState(0);
   const [editingId, setEditingId] = useState(null);
+  const [editingFolderId, setEditingFolderId] = useState(null);
   const [formLabel, setFormLabel] = useState('');
   const [formDate, setFormDate] = useState('');
   const [formColor, setFormColor] = useState(COLOR_OPTIONS[0]);
   const [formIconIndex, setFormIconIndex] = useState(0);
+  const [formFolderId, setFormFolderId] = useState(null);
+  const [formFolderName, setFormFolderName] = useState('');
+  const [formFolderColor, setFormFolderColor] = useState('#6366f1');
+  const [formFolderIcon, setFormFolderIcon] = useState('📁');
+  const [formFolderDescription, setFormFolderDescription] = useState('');
+
+  // sidebar visibility for mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
+  const [showFolders, setShowFolders] = useState(!isMobile);
 
   useEffect(() => {
-    async function loadTasks() {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 640;
+      setIsMobile(mobile);
+      if (!mobile) setShowFolders(true);
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    async function loadData() {
       if (authLoading) return;
       setLoading(true);
       try {
-        const loadedTasks = await dataService.getTasks();
+        const loadedFolders = await dataService.getFolders();
+        setFolders(loadedFolders);
+        setSelectedFolder(loadedFolders[0]); // Default to "All"
+        
+        const loadedTasks = await dataService.getTasks(loadedFolders[0]?.id);
         setTasks(loadedTasks);
       } catch (error) {
-        console.error('Error loading tasks:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     }
-    loadTasks();
+    loadData();
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -61,6 +91,7 @@ const LastTimeSince = () => {
     setFormDate(formatDateTimeLocal(now.toISOString()));
     setFormColor(COLOR_OPTIONS[tasks.length % COLOR_OPTIONS.length]);
     setFormIconIndex(tasks.length % ICON_OPTIONS.length);
+    setFormFolderId(selectedFolder?.id === 'all' ? null : selectedFolder?.id);
     setModalOpen(true);
   };
 
@@ -70,12 +101,46 @@ const LastTimeSince = () => {
     setFormDate(formatDateTimeLocal(task.date));
     setFormColor(task.color);
     setFormIconIndex(task.iconIndex ?? 0);
+    setFormFolderId(task.folderId);
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+  };
+
+  const openAddFolder = () => {
+    setEditingFolderId(null);
+    setFormFolderName('');
+    setFormFolderColor('#6366f1');
+    setFormFolderIcon('📁');
+    setFormFolderDescription('');
+    setFolderModalOpen(true);
+  };
+
+  const openEditFolder = (folder) => {
+    setEditingFolderId(folder.id);
+    setFormFolderName(folder.name);
+    setFormFolderColor(folder.color);
+    setFormFolderIcon(folder.icon);
+    setFormFolderDescription(folder.description || '');
+    setFolderModalOpen(true);
+  };
+
+  const closeFolderModal = () => {
+    setFolderModalOpen(false);
+    setEditingFolderId(null);
+  };
+
+  const handleFolderSelect = async (folder) => {
+    setSelectedFolder(folder);
+    try {
+      const loadedTasks = await dataService.getTasks(folder.id);
+      setTasks(loadedTasks);
+    } catch (error) {
+      console.error('Error loading tasks for folder:', error);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -85,19 +150,71 @@ const LastTimeSince = () => {
     const date = new Date(formDate).toISOString();
     const color = formColor || COLOR_OPTIONS[0];
     const iconIndex = formIconIndex ?? 0;
+    const folderId = formFolderId;
 
     try {
       if (editingId) {
-        const updated = await dataService.updateTask(editingId, { label, date, color, iconIndex });
+        const updated = await dataService.updateTask(editingId, { label, date, color, iconIndex, folderId });
         setTasks((prev) => prev.map((t) => (t.id === editingId ? updated : t)));
       } else {
-        const newTask = await dataService.addTask({ label, date, color, iconIndex });
+        const newTask = await dataService.addTask({ label, date, color, iconIndex, folderId });
         setTasks((prev) => [...prev, newTask]);
       }
       closeModal();
     } catch (error) {
       console.error('Error saving task:', error);
       alert('Failed to save task. Please try again.');
+    }
+  };
+
+  const handleFolderSubmit = async (e) => {
+    e.preventDefault();
+    const name = formFolderName.trim();
+    if (!name) return;
+
+    try {
+      if (editingFolderId) {
+        const updated = await dataService.updateFolder(editingFolderId, {
+          name,
+          color: formFolderColor,
+          icon: formFolderIcon,
+          description: formFolderDescription,
+        });
+        setFolders((prev) => prev.map((f) => (f.id === editingFolderId ? updated : f)));
+        if (selectedFolder?.id === editingFolderId) {
+          setSelectedFolder(updated);
+        }
+      } else {
+        const newFolder = await dataService.addFolder({
+          name,
+          color: formFolderColor,
+          icon: formFolderIcon,
+          description: formFolderDescription,
+          isDefault: false,
+        });
+        setFolders((prev) => [...prev, newFolder]);
+      }
+      closeFolderModal();
+    } catch (error) {
+      console.error('Error saving folder:', error);
+      alert('Failed to save folder. Please try again.');
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    try {
+      await dataService.deleteFolder(folderId);
+      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+      // If deleted folder was selected, go to "All"
+      if (selectedFolder?.id === folderId) {
+        const allFolder = folders.find((f) => f.id === 'all');
+        if (allFolder) {
+          handleFolderSelect(allFolder);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      alert('Failed to delete folder. Please try again.');
     }
   };
 
@@ -192,7 +309,53 @@ const LastTimeSince = () => {
           <UserBadge user={user} onSignOut={handleSignOut} onOpenAuth={() => setAuthModalOpen(true)} />
         </div>
 
-        <div className="content-wrapper">
+        <div className="main-layout-with-folders">
+          {isMobile && (
+            <button
+              type="button"
+              className="btn btn-ghost folder-toggle"
+              onClick={() => setShowFolders((v) => !v)}
+            >
+              <Folder size={18} />
+              <span style={{ marginLeft: 6 }}>
+                {showFolders ? 'Hide folders' : 'Show folders'}
+              </span>
+            </button>
+          )}
+
+          {(!isMobile || showFolders) && (
+            <FolderList
+              folders={folders}
+              selectedFolder={selectedFolder}
+              onSelectFolder={handleFolderSelect}
+              onAddFolder={openAddFolder}
+              onEditFolder={openEditFolder}
+              onDeleteFolder={handleDeleteFolder}
+            />
+          )}
+
+          <div className="content-wrapper">
+          {selectedFolder && selectedFolder.id !== folders[0]?.id && (
+            <div className="filter-header">
+              <div className="filter-badge">
+                <span className="filter-icon" style={{ color: selectedFolder.color }}>
+                  {selectedFolder.icon || '📁'}
+                </span>
+                <div className="filter-info">
+                  <span className="filter-label">Viewing Folder</span>
+                  <span className="filter-name">{selectedFolder.name}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-clear-filter"
+                onClick={() => handleFolderSelect(folders[0])}
+              >
+                View All
+              </button>
+            </div>
+          )}
+
           <div className="skull-container">
             <div className="skull-wrapper">
               <Skull className="skull-icon" aria-hidden="false" />
@@ -208,7 +371,7 @@ const LastTimeSince = () => {
             <div className="divider-container">
               <div className="divider" />
             </div>
-            <p className="header-sub">Track anything. Add and edit your own.</p>
+            <p className="header-sub">{selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}</p>
           </div>
 
           <div className="actions-bar">
@@ -220,9 +383,19 @@ const LastTimeSince = () => {
           </div>
 
           <div className="cards-grid">
-            {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} elapsed={elapsed} onEdit={openEdit} onDelete={handleDelete} />
-            ))}
+            {tasks.map((task) => {
+              const taskFolder = folders.find((f) => f.id === task.folderId) || null;
+              return (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  elapsed={elapsed}
+                  folder={taskFolder}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
           </div>
 
           <div className="footer page-hero-footer">
@@ -233,6 +406,7 @@ const LastTimeSince = () => {
               </div>
               <div className="neon-glow-bg" />
             </div>
+          </div>
           </div>
         </div>
 
@@ -252,6 +426,24 @@ const LastTimeSince = () => {
           setFormColor={setFormColor}
           formIconIndex={formIconIndex}
           setFormIconIndex={setFormIconIndex}
+          folders={folders}
+          formFolderId={formFolderId}
+          setFormFolderId={setFormFolderId}
+        />
+
+        <FolderModal
+          isOpen={folderModalOpen}
+          onClose={closeFolderModal}
+          onSubmit={handleFolderSubmit}
+          editingFolder={editingFolderId}
+          formName={formFolderName}
+          setFormName={setFormFolderName}
+          formColor={formFolderColor}
+          setFormColor={setFormFolderColor}
+          formIcon={formFolderIcon}
+          setFormIcon={setFormFolderIcon}
+          formDescription={formFolderDescription}
+          setFormDescription={setFormFolderDescription}
         />
 
         <AuthModal
