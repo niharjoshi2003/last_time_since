@@ -7,6 +7,7 @@ A personal "time since" tracker built with React. Track how long it's been since
 - ✅ **Guest Mode** - Works immediately without signup (uses localStorage)
 - ✅ **Cloud Sync** - Optional Supabase integration for cross-device access
 - ✅ **Add/Edit/Delete Tasks** - Full CRUD operations
+- ✅ **Organize by Folders** - Create folders (e.g. GF 1, GF 2) and assign tasks; "All" folder shows everything
 - ✅ **Live Countdown** - Real-time elapsed time updates every second
 - ✅ **Custom Colors & Icons** - Personalize each task
 - ✅ **Seamless Migration** - Auto-migrate localStorage tasks to cloud on signup
