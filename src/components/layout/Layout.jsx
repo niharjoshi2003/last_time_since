@@ -25,7 +25,7 @@ const Layout = ({ children }) => {
               <Clock size={28} strokeWidth={2.5} />
             </div>
             <div className="brand-text">
-              <span className="brand-main">Timeline</span>
+              <span className="brand-main">Last Time Since</span>
               <span className="brand-sub">Track Important Moments</span>
             </div>
           </Link>
@@ -46,7 +46,7 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="nav-controls">
-            <ThemeSwitcher />
+            {/* <ThemeSwitcher /> */}
             <button
               type="button"
               className="mobile-menu-btn"

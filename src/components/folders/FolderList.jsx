@@ -6,7 +6,7 @@ const FolderList = ({ folders, selectedFolder, onSelectFolder, onAddFolder, onEd
     <div className="folder-sidebar">
       <div className="folder-sidebar-header">
         <div className="folder-sidebar-title-group">
-          <Layers size={20} className="sidebar-title-icon" />
+          {/* <Layers size={20} className="sidebar-title-icon" /> */}
           <h3 className="folder-sidebar-title">Collections</h3>
           <span className="folder-count">{folders.length - 1}</span>
         </div>

@@ -296,6 +296,24 @@ const LastTimeSince = () => {
         </div>
         <div className="grain-overlay" />
 
+        <div className="skull-container">
+            <div className="skull-wrapper">
+              <Skull className="skull-icon" aria-hidden="false" />
+              <div className="skull-ping" aria-hidden="true" />
+            </div>
+          </div>
+
+        <div className="header">
+            <h1 className="title">
+              <div className="title-line-1">LAST TIME</div>
+              <div className="title-line-2">SINCE</div>
+            </h1>
+            <div className="divider-container">
+              <div className="divider" />
+            </div>
+            <p className="header-sub">{selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}</p>
+          </div>
+
         {!user && (
           <div className="guest-banner">
             {/* <div className="guest-banner-content">
@@ -356,23 +374,9 @@ const LastTimeSince = () => {
             </div>
           )}
 
-          <div className="skull-container">
-            <div className="skull-wrapper">
-              <Skull className="skull-icon" aria-hidden="false" />
-              <div className="skull-ping" aria-hidden="true" />
-            </div>
-          </div>
+          
 
-          <div className="header">
-            <h1 className="title">
-              <div className="title-line-1">LAST TIME</div>
-              <div className="title-line-2">SINCE</div>
-            </h1>
-            <div className="divider-container">
-              <div className="divider" />
-            </div>
-            <p className="header-sub">{selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}</p>
-          </div>
+          
 
           <div className="actions-bar">
             <button type="button" className="btn-add" onClick={openAdd}>

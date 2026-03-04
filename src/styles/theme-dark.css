@@ -119,15 +119,25 @@
   transform: translateY(-2px);
 }
 
+/* ── CARD FIX ──────────────────────────────────────────────────────────────
+   Match the base size, padding, min-height and hover transform of ultra-love
+   so all three themes render identical card shapes.
+   ───────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] .card {
   background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
+  /* Ensure same base sizing as ultra-love */
+  padding: 32px;
+  min-height: 320px;
+  border-radius: 20px;
 }
 [data-theme="dark"] .card:hover {
-  border-color: rgba(248, 113, 113, 0.4);
-  box-shadow: 0 16px 48px rgba(248, 113, 113, 0.2);
+  /* Mirror ultra-love: scale(1.05) + lift */
+  transform: scale(1.05) translateY(-8px);
+  border-color: rgba(248, 113, 113, 0.45);
+  box-shadow: 0 20px 60px rgba(248, 113, 113, 0.2);
   background: rgba(30, 41, 59, 0.9);
 }
 [data-theme="dark"] .card-overlay,
@@ -138,6 +148,7 @@
   color: #94a3b8;
 }
 [data-theme="dark"] .card-btn:hover { background: rgba(255, 255, 255, 0.1); color: #f1f5f9; }
+
 [data-theme="dark"] .icon-wrapper {
   background: linear-gradient(135deg, rgba(248, 113, 113, 0.1), rgba(220, 38, 38, 0.05));
   border-color: rgba(248, 113, 113, 0.3);
@@ -145,7 +156,7 @@
 }
 [data-theme="dark"] .activity-label { color: #94a3b8; }
 [data-theme="dark"] .card:hover .activity-label { color: #f1f5f9; }
-[data-theme="dark"] .time-value { filter: none; }
+[data-theme="dark"] .time-value { filter: none; color: #f1f5f9; }
 [data-theme="dark"] .time-suffix { color: #64748b; }
 [data-theme="dark"] .card:hover .time-suffix { color: #94a3b8; }
 

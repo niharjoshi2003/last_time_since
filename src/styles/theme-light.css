@@ -118,15 +118,25 @@
   background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
 }
 
+/* ── CARD FIX ──────────────────────────────────────────────────────────────
+   Match the base size, padding, min-height and hover transform of ultra-love
+   so all three themes render identical card shapes.
+   ───────────────────────────────────────────────────────────────────────── */
 [data-theme="light"] .card {
   background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.15);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(20px);
+  /* Ensure same base sizing as ultra-love */
+  padding: 32px;
+  min-height: 320px;
+  border-radius: 20px;
 }
 [data-theme="light"] .card:hover {
-  border-color: rgba(220, 38, 38, 0.3);
-  box-shadow: 0 16px 48px rgba(220, 38, 38, 0.15);
+  /* Mirror ultra-love: scale(1.05) + lift */
+  transform: scale(1.05) translateY(-8px);
+  border-color: rgba(220, 38, 38, 0.35);
+  box-shadow: 0 20px 60px rgba(220, 38, 38, 0.15);
 }
 [data-theme="light"] .card-overlay,
 [data-theme="light"] .card-gradient { display: none; }
@@ -136,6 +146,7 @@
   color: #64748b;
 }
 [data-theme="light"] .card-btn:hover { background: rgba(0, 0, 0, 0.1); color: #1e293b; }
+
 [data-theme="light"] .icon-wrapper {
   background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%);
   border-color: rgba(220, 38, 38, 0.2);
@@ -143,7 +154,7 @@
 }
 [data-theme="light"] .activity-label { color: #64748b; }
 [data-theme="light"] .card:hover .activity-label { color: #1e293b; }
-[data-theme="light"] .time-value { filter: none; }
+[data-theme="light"] .time-value { filter: none; color: #1e293b; }
 [data-theme="light"] .time-suffix { color: #94a3b8; }
 [data-theme="light"] .card:hover .time-suffix { color: #64748b; }
 
