@@ -541,7 +541,7 @@ export const dataService = {
 
       // Convert and insert tasks
       const supabaseTasks = userTasks.map((task) => toSupabaseTask(task, userId))
-      const { data, error } = await supabase.from('tasks').insert(supabaseTasks).select()
+      const {  error } = await supabase.from('tasks').insert(supabaseTasks).select()
 
       if (error) throw error
 

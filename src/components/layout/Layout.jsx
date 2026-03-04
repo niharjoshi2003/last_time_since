@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Menu, X, Clock } from 'lucide-react';
 import AppFooter from './AppFooter';
-import ThemeSwitcher from './ThemeSwitcher';
+// import ThemeSwitcher from './ThemeSwitcher';
 
 const Layout = ({ children }) => {
   const [menuOpen, setMenuOpen] = useState(false);

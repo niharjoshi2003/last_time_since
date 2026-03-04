@@ -1,5 +1,5 @@
 import React from 'react';
-import { Folder, Plus, ChevronRight, Edit2, Trash2, Layers } from 'lucide-react';
+import { Folder, Plus, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 
 const FolderList = ({ folders, selectedFolder, onSelectFolder, onAddFolder, onEditFolder, onDeleteFolder }) => {
   return (
