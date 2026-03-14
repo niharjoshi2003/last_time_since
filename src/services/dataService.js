@@ -1,15 +1,26 @@
 import { supabase } from '../config/supabase'
 
 const STORAGE_KEY = 'lasttimesince_tasks'
+const FOLDERS_STORAGE_KEY = 'lasttimesince_folders'
 
 // Default tasks for new users
 const defaultTasks = [
-  { id: '1', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0 },
-  { id: '2', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1 },
-  { id: '3', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2 },
-  { id: '4', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3 },
-  { id: '5', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4 },
+  { id: '1', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0, folderId: null },
+  { id: '2', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1, folderId: null },
+  { id: '3', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2, folderId: null },
+  { id: '4', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3, folderId: null },
+  { id: '5', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4, folderId: null },
 ]
+
+// Default folder for "All"
+const defaultFolder = {
+  id: 'all',
+  name: 'All',
+  color: '#6366f1',
+  icon: '',
+  description: 'All tracked activities',
+  isDefault: true,
+}
 
 // Helper: Convert Supabase task to app format
 const fromSupabaseTask = (task) => ({
@@ -18,15 +29,37 @@ const fromSupabaseTask = (task) => ({
   date: task.last_done,
   color: task.color || '#6366f1',
   iconIndex: task.icon_index || 0,
+  folderId: task.folder_id,
 })
 
 // Helper: Convert app task to Supabase format
 const toSupabaseTask = (task, userId) => ({
   user_id: userId,
+  folder_id: task.folderId || null,
   label: task.label,
   last_done: task.date,
   color: task.color,
   icon_index: task.iconIndex ?? 0,
+})
+
+// Helper: Convert Supabase folder to app format
+const fromSupabaseFolder = (folder) => ({
+  id: folder.id,
+  name: folder.name,
+  color: folder.color,
+  icon: folder.icon,
+  description: folder.description,
+  isDefault: folder.is_default,
+})
+
+// Helper: Convert app folder to Supabase format
+const toSupabaseFolder = (folder, userId) => ({
+  user_id: userId,
+  name: folder.name,
+  color: folder.color,
+  icon: folder.icon,
+  description: folder.description,
+  is_default: folder.isDefault || false,
 })
 
 // LocalStorage helpers
@@ -48,6 +81,27 @@ const saveToLocalStorage = (tasks) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
   } catch (error) {
     console.error('Error saving to localStorage:', error)
+  }
+}
+
+const loadFoldersFromLocalStorage = () => {
+  try {
+    const raw = localStorage.getItem(FOLDERS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : [defaultFolder]
+    }
+  } catch (error) {
+    console.error('Error loading folders from localStorage:', error)
+  }
+  return [defaultFolder]
+}
+
+const saveFoldersToLocalStorage = (folders) => {
+  try {
+    localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(folders))
+  } catch (error) {
+    console.error('Error saving folders to localStorage:', error)
   }
 }
 
@@ -78,8 +132,10 @@ export const dataService = {
     }
   },
 
-  // Get all tasks (from Supabase or localStorage)
-  async getTasks() {
+  // FOLDER OPERATIONS
+
+  // Get all folders for user
+  async getFolders() {
     const isAuth = await this.isAuthenticated()
     
     if (isAuth && supabase) {
@@ -88,10 +144,177 @@ export const dataService = {
         if (!user) throw new Error('No user found')
 
         const { data, error } = await supabase
+          .from('folders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+
+        if (error) throw error
+
+        const folders = (data || []).map(fromSupabaseFolder)
+        return [defaultFolder, ...folders]
+      } catch (error) {
+        console.error('Error loading folders from Supabase, falling back to localStorage:', error)
+        return [defaultFolder, ...loadFoldersFromLocalStorage().filter(f => f.id !== 'all')]
+      }
+    }
+
+    // Guest mode: use localStorage
+    return [defaultFolder, ...loadFoldersFromLocalStorage().filter(f => f.id !== 'all')]
+  },
+
+  // Add new folder
+  async addFolder(folder) {
+    const isAuth = await this.isAuthenticated()
+
+    if (isAuth && supabase) {
+      try {
+        const user = await this.getCurrentUser()
+        if (!user) throw new Error('No user found')
+
+        const supabaseFolder = toSupabaseFolder(folder, user.id)
+        const { data, error } = await supabase
+          .from('folders')
+          .insert([supabaseFolder])
+          .select()
+          .single()
+
+        if (error) throw error
+
+        return fromSupabaseFolder(data)
+      } catch (error) {
+        console.error('Error adding folder to Supabase, falling back to localStorage:', error)
+        const folders = loadFoldersFromLocalStorage()
+        const newFolder = {
+          ...folder,
+          id: String(Date.now()) + Math.random().toString(36).slice(2),
+        }
+        const updatedFolders = [...folders, newFolder]
+        saveFoldersToLocalStorage(updatedFolders)
+        return newFolder
+      }
+    }
+
+    // Guest mode: use localStorage
+    const folders = loadFoldersFromLocalStorage()
+    const newFolder = {
+      ...folder,
+      id: String(Date.now()) + Math.random().toString(36).slice(2),
+    }
+    const updatedFolders = [...folders, newFolder]
+    saveFoldersToLocalStorage(updatedFolders)
+    return newFolder
+  },
+
+  // Update folder
+  async updateFolder(id, updates) {
+    const isAuth = await this.isAuthenticated()
+
+    if (isAuth && supabase) {
+      try {
+        const user = await this.getCurrentUser()
+        if (!user) throw new Error('No user found')
+
+        const supabaseUpdates = {
+          name: updates.name,
+          color: updates.color,
+          icon: updates.icon,
+          description: updates.description,
+          updated_at: new Date().toISOString(),
+        }
+
+        const { data, error } = await supabase
+          .from('folders')
+          .update(supabaseUpdates)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+
+        if (error) throw error
+
+        return fromSupabaseFolder(data)
+      } catch (error) {
+        console.error('Error updating folder in Supabase, falling back to localStorage:', error)
+        const folders = loadFoldersFromLocalStorage()
+        const updatedFolders = folders.map((f) =>
+          f.id === id ? { ...f, ...updates } : f
+        )
+        saveFoldersToLocalStorage(updatedFolders)
+        return updatedFolders.find((f) => f.id === id)
+      }
+    }
+
+    // Guest mode: use localStorage
+    const folders = loadFoldersFromLocalStorage()
+    const updatedFolders = folders.map((f) =>
+      f.id === id ? { ...f, ...updates } : f
+    )
+    saveFoldersToLocalStorage(updatedFolders)
+    return updatedFolders.find((f) => f.id === id)
+  },
+
+  // Delete folder
+  async deleteFolder(id) {
+    const isAuth = await this.isAuthenticated()
+
+    if (isAuth && supabase) {
+      try {
+        const user = await this.getCurrentUser()
+        if (!user) throw new Error('No user found')
+
+        // Move tasks to default folder (null)
+        await supabase
+          .from('tasks')
+          .update({ folder_id: null })
+          .eq('folder_id', id)
+          .eq('user_id', user.id)
+
+        // Delete folder
+        const { error } = await supabase
+          .from('folders')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+        return true
+      } catch (error) {
+        console.error('Error deleting folder from Supabase, falling back to localStorage:', error)
+        const folders = loadFoldersFromLocalStorage()
+        const updatedFolders = folders.filter((f) => f.id !== id)
+        saveFoldersToLocalStorage(updatedFolders)
+        return true
+      }
+    }
+
+    // Guest mode: use localStorage
+    const folders = loadFoldersFromLocalStorage()
+    const updatedFolders = folders.filter((f) => f.id !== id)
+    saveFoldersToLocalStorage(updatedFolders)
+    return true
+  },
+
+  // TASK OPERATIONS
+  async getTasks(folderId = null) {
+    const isAuth = await this.isAuthenticated()
+    
+    if (isAuth && supabase) {
+      try {
+        const user = await this.getCurrentUser()
+        if (!user) throw new Error('No user found')
+
+        let query = supabase
           .from('tasks')
           .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+
+        // Filter by folder if specified and not "all"
+        if (folderId && folderId !== 'all') {
+          query = query.eq('folder_id', folderId)
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false })
 
         if (error) throw error
 
@@ -101,12 +324,20 @@ export const dataService = {
       } catch (error) {
         console.error('Error loading from Supabase, falling back to localStorage:', error)
         // Fallback to localStorage if Supabase fails
-        return loadFromLocalStorage()
+        let tasks = loadFromLocalStorage()
+        if (folderId && folderId !== 'all') {
+          tasks = tasks.filter((t) => t.folderId === folderId)
+        }
+        return tasks
       }
     }
 
     // Guest mode: use localStorage
-    return loadFromLocalStorage()
+    let tasks = loadFromLocalStorage()
+    if (folderId && folderId !== 'all') {
+      tasks = tasks.filter((t) => t.folderId === folderId)
+    }
+    return tasks
   },
 
   // Add new task
@@ -167,6 +398,7 @@ export const dataService = {
           last_done: updates.date,
           color: updates.color,
           icon_index: updates.iconIndex ?? 0,
+          folder_id: updates.folderId || null,
           updated_at: new Date().toISOString(),
         }
 
@@ -277,6 +509,25 @@ export const dataService = {
     }
 
     try {
+      // migrate folders first
+      const localFolders = loadFoldersFromLocalStorage()
+      const userFolders = localFolders.filter((f) => f.id !== 'all' && !f.isDefault)
+
+      if (userFolders.length > 0) {
+        // insert with same ids so tasks can reference them
+        const supabaseFolders = userFolders.map((f) => ({
+          id: f.id,
+          user_id: userId,
+          name: f.name,
+          color: f.color,
+          icon: f.icon,
+          description: f.description,
+          is_default: f.isDefault || false,
+        }))
+        const { error: folderError } = await supabase.from('folders').insert(supabaseFolders)
+        if (folderError) throw folderError
+      }
+
       const localTasks = loadFromLocalStorage()
 
       // Filter out default tasks (don't migrate those)
@@ -284,18 +535,19 @@ export const dataService = {
         (task) => !defaultTasks.some((dt) => dt.id === task.id)
       )
 
-      if (userTasks.length === 0) {
+      if (userTasks.length === 0 && userFolders.length === 0) {
         return { success: true, migrated: 0 }
       }
 
       // Convert and insert tasks
       const supabaseTasks = userTasks.map((task) => toSupabaseTask(task, userId))
-      const { data, error } = await supabase.from('tasks').insert(supabaseTasks).select()
+      const {  error } = await supabase.from('tasks').insert(supabaseTasks).select()
 
       if (error) throw error
 
       // Clear localStorage after successful migration
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(FOLDERS_STORAGE_KEY)
 
       return { success: true, migrated: userTasks.length }
     } catch (error) {

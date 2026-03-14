@@ -3,7 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { ICON_OPTIONS } from '../../constants/taskOptions';
 import { formatTime } from '../../utils/formatTime';
 
-const TaskCard = ({ task, elapsed, onEdit, onDelete }) => {
+const TaskCard = ({ task, elapsed, onEdit, onDelete, folder }) => {
   const { Icon } = ICON_OPTIONS[task.iconIndex ?? 0] || ICON_OPTIONS[0];
   const timeElapsed = elapsed[task.id];
 
@@ -33,6 +33,11 @@ const TaskCard = ({ task, elapsed, onEdit, onDelete }) => {
           </div>
         </div>
         <h3 className="activity-label">{task.label}</h3>
+        {folder && (
+          <div className="task-folder-label" style={{ color: folder.color }}>
+            {folder.icon} {folder.name}
+          </div>
+        )}
         <div className="time-display">
           <div className="time-value" style={{ color: task.color }}>{formatTime(timeElapsed)}</div>
           <div className="time-suffix">since then</div>

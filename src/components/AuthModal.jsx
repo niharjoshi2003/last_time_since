@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Mail, Lock, Cloud, Check } from 'lucide-react'
+import { X, Mail, Lock,  Check } from 'lucide-react'
 
 const AuthModal = ({ isOpen, onClose, onSignUp, onSignIn, onContinueAsGuest, migrating, migratedCount }) => {
   const [tab, setTab] = useState('signup') // 'signup' or 'signin'

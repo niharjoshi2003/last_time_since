@@ -27,25 +27,116 @@
 [data-theme="light"] .divider { background: linear-gradient(to right, transparent, #dc2626, transparent); }
 [data-theme="light"] .header-sub { color: #64748b; }
 
-[data-theme="light"] .btn-add {
-  color: #fff;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  border-color: #dc2626;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-}
-[data-theme="light"] .btn-add:hover {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
+/* Folder styles */
+[data-theme="light"] .folder-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
+[data-theme="light"] .folder-sidebar-title { color: #64748b; }
+
+[data-theme="light"] .folder-count {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+}
+
+[data-theme="light"] .folder-add-btn {
+  color: #fff;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border: none;
+}
+
+[data-theme="light"] .folder-add-btn:hover {
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="light"] .folder-item {
+  color: #64748b;
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .folder-item:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+[data-theme="light"] .folder-item.active {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  font-weight: 700;
+}
+
+[data-theme="light"] .folder-edit-btn {
+  color: #0284c7;
+}
+
+[data-theme="light"] .folder-edit-btn:hover {
+  background: rgba(2, 132, 199, 0.15);
+}
+
+[data-theme="light"] .folder-action-delete {
+  color: #dc2626;
+}
+
+[data-theme="light"] .folder-action-delete:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+/* Filter Header styles */
+[data-theme="light"] .filter-header {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(220, 38, 38, 0.2);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.08);
+}
+
+[data-theme="light"] .filter-name { color: #dc2626; }
+[data-theme="light"] .filter-label { color: #94a3b8; }
+
+[data-theme="light"] .btn-clear-filter {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+[data-theme="light"] .btn-clear-filter:hover {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+[data-theme="light"] .btn-add {
+  color: #fff;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #b91c1c;
+  box-shadow: 0 4px 24px rgba(220, 38, 38, 0.25);
+}
+[data-theme="light"] .btn-add:hover {
+  box-shadow: 0 12px 40px rgba(220, 38, 38, 0.35);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+}
+
+/* ── CARD FIX ──────────────────────────────────────────────────────────────
+   Match the base size, padding, min-height and hover transform of ultra-love
+   so all three themes render identical card shapes.
+   ───────────────────────────────────────────────────────────────────────── */
 [data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(220, 38, 38, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(20px);
+  /* Ensure same base sizing as ultra-love */
+  padding: 32px;
+  min-height: 320px;
+  border-radius: 20px;
 }
 [data-theme="light"] .card:hover {
-  border-color: rgba(0, 0, 0, 0.15);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  /* Mirror ultra-love: scale(1.05) + lift */
+  transform: scale(1.05) translateY(-8px);
+  border-color: rgba(220, 38, 38, 0.35);
+  box-shadow: 0 20px 60px rgba(220, 38, 38, 0.15);
 }
 [data-theme="light"] .card-overlay,
 [data-theme="light"] .card-gradient { display: none; }
@@ -55,14 +146,15 @@
   color: #64748b;
 }
 [data-theme="light"] .card-btn:hover { background: rgba(0, 0, 0, 0.1); color: #1e293b; }
+
 [data-theme="light"] .icon-wrapper {
-  background: #f1f5f9;
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%);
+  border-color: rgba(220, 38, 38, 0.2);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.1), inset 0 1px 4px rgba(255, 255, 255, 0.8);
 }
 [data-theme="light"] .activity-label { color: #64748b; }
 [data-theme="light"] .card:hover .activity-label { color: #1e293b; }
-[data-theme="light"] .time-value { filter: none; }
+[data-theme="light"] .time-value { filter: none; color: #1e293b; }
 [data-theme="light"] .time-suffix { color: #94a3b8; }
 [data-theme="light"] .card:hover .time-suffix { color: #64748b; }
 
@@ -73,11 +165,11 @@
 }
 [data-theme="light"] .neon-glow-bg { background: radial-gradient(circle, rgba(220, 38, 38, 0.1) 0%, transparent 70%); }
 
-[data-theme="light"] .modal-backdrop { background: rgba(0, 0, 0, 0.4); }
+[data-theme="light"] .modal-backdrop { background: rgba(0, 0, 0, 0.45); }
 [data-theme="light"] .modal-box {
   background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
+  border-color: rgba(220, 38, 38, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
 }
 [data-theme="light"] .modal-header { border-color: rgba(0, 0, 0, 0.08); }
 [data-theme="light"] .modal-title { color: #1e293b; }
@@ -88,13 +180,15 @@
 [data-theme="light"] .modal-close:hover { background: #e2e8f0; color: #1e293b; }
 [data-theme="light"] .form-label span { color: #64748b; }
 [data-theme="light"] .form-input {
-  background: #f1f5f9;
-  border-color: rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: rgba(220, 38, 38, 0.15);
   color: #1e293b;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 [data-theme="light"] .form-input:focus {
   border-color: #dc2626;
-  box-shadow: 0 0 0 3px #fef2f2;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  background: #fff;
 }
 [data-theme="light"] .form-input::placeholder { color: #94a3b8; }
 [data-theme="light"] .icon-swatch {
@@ -117,8 +211,14 @@
 [data-theme="light"] .btn-ghost:hover { color: #1e293b; background: #e2e8f0; }
 [data-theme="light"] .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+  border: none;
+}
+[data-theme="light"] .btn-primary:hover {
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4);
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
 }
 
 [data-theme="light"] .guest-banner {
@@ -158,13 +258,66 @@
 [data-theme="light"] .site-footer-copyright { color: #94a3b8; }
 
 [data-theme="light"] .site-nav {
-  background: #ffffff;
+  background: rgba(248, 250, 252, 0.95);
   border-color: rgba(0, 0, 0, 0.08);
 }
+
+[data-theme="light"] .site-nav.scrolled {
+  background: rgba(248, 250, 252, 0.98);
+}
+
+[data-theme="light"] .brand-icon {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+[data-theme="light"] .brand-main {
+  color: #1e293b;
+}
+
+[data-theme="light"] .brand-sub {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .nav-link {
+  color: #64748b;
+}
+
+[data-theme="light"] .nav-link:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: #475569;
+}
+
+[data-theme="light"] .nav-link.active {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+}
+
 [data-theme="light"] .site-nav-brand { color: #1e293b; }
 [data-theme="light"] .site-nav-links a { color: #64748b; }
 [data-theme="light"] .site-nav-links a:hover { color: #1e293b; }
 [data-theme="light"] .site-nav-links a.active { color: #dc2626; font-weight: 700; }
+
+[data-theme="light"] .mobile-menu {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .mobile-nav-link {
+  color: #64748b;
+}
+
+[data-theme="light"] .mobile-nav-link:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+[data-theme="light"] .mobile-nav-link.active {
+  color: #dc2626;
+  border-left-color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+[data-theme="light"] .mobile-menu a:hover { background: rgba(0, 0, 0, 0.05); }
 
 [data-theme="light"] .theme-switcher {
   background: #f1f5f9;

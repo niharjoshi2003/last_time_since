@@ -265,10 +265,66 @@
   background: rgba(0, 0, 0, 0.4);
   border-color: rgba(255, 255, 255, 0.08);
 }
+
+[data-theme="ultra-love"] .site-nav.scrolled {
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(244, 114, 182, 0.2);
+}
+
+[data-theme="ultra-love"] .brand-icon {
+  background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+}
+
+[data-theme="ultra-love"] .brand-main {
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+[data-theme="ultra-love"] .brand-sub {
+  color: #f9a8d4;
+  font-weight: 600;
+}
+
+[data-theme="ultra-love"] .nav-link {
+  color: #f0f0f0;
+}
+
+[data-theme="ultra-love"] .nav-link:hover {
+  background: rgba(244, 114, 182, 0.25);
+  color: #fff;
+}
+
+[data-theme="ultra-love"] .nav-link.active {
+  background: rgba(244, 114, 182, 0.35);
+  color: #fca5a5;
+  font-weight: 700;
+}
+
 [data-theme="ultra-love"] .site-nav-brand { color: #fff; }
 [data-theme="ultra-love"] .site-nav-links a { color: #9ca3af; }
 [data-theme="ultra-love"] .site-nav-links a:hover { color: #fff; }
 [data-theme="ultra-love"] .site-nav-links a.active { color: #fca5a5; font-weight: 700; }
+
+[data-theme="ultra-love"] .mobile-menu {
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="ultra-love"] .mobile-nav-link {
+  color: #f0f0f0;
+}
+
+[data-theme="ultra-love"] .mobile-nav-link:hover {
+  background: rgba(244, 114, 182, 0.25);
+}
+
+[data-theme="ultra-love"] .mobile-nav-link.active {
+  color: #fca5a5;
+  border-left-color: #fca5a5;
+  background: rgba(244, 114, 182, 0.35);
+}
 
 [data-theme="ultra-love"] .theme-switcher {
   background: rgba(255, 255, 255, 0.06);
