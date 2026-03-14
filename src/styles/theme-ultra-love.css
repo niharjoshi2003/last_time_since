@@ -337,6 +337,30 @@
   color: #fca5a5;
 }
 
+[data-theme="ultra-love"] .folder-section-panel {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+[data-theme="ultra-love"] .folder-section-label { color: #9ca3af; }
+[data-theme="ultra-love"] .folder-section-hide-link { color: #fca5a5; }
+[data-theme="ultra-love"] .folder-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="ultra-love"] .folder-item:hover {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+[data-theme="ultra-love"] .folder-item.active {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+[data-theme="ultra-love"] .folder-item-count-badge {
+  background: rgba(220, 38, 38, 0.25);
+  color: #fca5a5;
+}
+
 [data-theme="ultra-love"] .page-content h1,
 [data-theme="ultra-love"] .page-content h2,
 [data-theme="ultra-love"] .page-content strong { color: #fff; }
@@ -345,3 +369,13 @@
 [data-theme="ultra-love"] .page-content em { color: #d1d5db; }
 [data-theme="ultra-love"] .page-content a { color: #fca5a5; text-decoration: underline; }
 [data-theme="ultra-love"] .page-content a:hover { color: #fecaca; }
+
+[data-theme="ultra-love"] .sticky-add-task {
+  background: rgba(0, 0, 0, 0.95);
+  border-top-color: rgba(248, 113, 113, 0.3);
+  box-shadow: 0 -4px 24px rgba(127, 29, 29, 0.3);
+}
+
+[data-theme="ultra-love"] .hero-section {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}

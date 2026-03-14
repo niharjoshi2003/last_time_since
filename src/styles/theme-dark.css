@@ -28,15 +28,25 @@
 [data-theme="dark"] .header-sub { color: #94a3b8; }
 
 /* Folder styles */
-[data-theme="dark"] .folder-sidebar {
-  background: rgba(30, 41, 59, 0.8);
+[data-theme="dark"] .folder-section-panel {
+  background: rgba(30, 41, 59, 0.9);
   border-color: rgba(248, 113, 113, 0.2);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
+[data-theme="dark"] .folder-section-label { color: #94a3b8; }
+[data-theme="dark"] .folder-section-hide-link { color: #f87171; }
+
+[data-theme="dark"] .folder-sidebar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
 [data-theme="dark"] .folder-sidebar-title { color: #94a3b8; }
 
-[data-theme="dark"] .folder-count {
+[data-theme="dark"] .folder-count,
+[data-theme="dark"] .folder-item-count-badge {
   background: rgba(248, 113, 113, 0.25);
   color: #f87171;
 }
@@ -341,3 +351,13 @@
 [data-theme="dark"] .page-content em { color: #94a3b8; }
 [data-theme="dark"] .page-content a { color: #f87171; text-decoration: underline; }
 [data-theme="dark"] .page-content a:hover { color: #fca5a5; }
+
+[data-theme="dark"] .sticky-add-task {
+  background: rgba(15, 23, 42, 0.95);
+  border-top-color: rgba(248, 113, 113, 0.2);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .hero-section {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}

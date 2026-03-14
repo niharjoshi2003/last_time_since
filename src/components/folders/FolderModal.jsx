@@ -43,8 +43,8 @@ const FolderModal = ({ isOpen, onClose, onSubmit, editingFolder, formName, setFo
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{editingFolder ? 'Edit folder' : 'New folder'}</h2>
-          <button type="button" className="modal-close" onClick={onClose}>
-            <X size={24} />
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close modal">
+            <X size={24} aria-hidden />
           </button>
         </div>
         <form className="modal-form" onSubmit={onSubmit}>

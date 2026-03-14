@@ -3,14 +3,17 @@ import { supabase } from '../config/supabase'
 const STORAGE_KEY = 'lasttimesince_tasks'
 const FOLDERS_STORAGE_KEY = 'lasttimesince_folders'
 
-// Default tasks for new users
+// Default tasks for new users (resetCount/resetHistory for frequency tracking)
 const defaultTasks = [
-  { id: '1', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0, folderId: null },
-  { id: '2', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1, folderId: null },
-  { id: '3', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2, folderId: null },
-  { id: '4', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3, folderId: null },
-  { id: '5', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4, folderId: null },
+  { id: '1', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0, folderId: null, resetCount: 0, resetHistory: [] },
+  { id: '2', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1, folderId: null, resetCount: 0, resetHistory: [] },
+  { id: '3', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2, folderId: null, resetCount: 0, resetHistory: [] },
+  { id: '4', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3, folderId: null, resetCount: 0, resetHistory: [] },
+  { id: '5', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4, folderId: null, resetCount: 0, resetHistory: [] },
 ]
+
+// Max number of reset timestamps to keep in history (for "last N resets" display)
+const MAX_RESET_HISTORY = 20
 
 // Default folder for "All"
 const defaultFolder = {
@@ -23,6 +26,7 @@ const defaultFolder = {
 }
 
 // Helper: Convert Supabase task to app format
+// Note: If using Supabase, add columns: reset_count (int default 0), reset_history (jsonb default '[]')
 const fromSupabaseTask = (task) => ({
   id: task.id,
   label: task.label,
@@ -30,6 +34,8 @@ const fromSupabaseTask = (task) => ({
   color: task.color || '#6366f1',
   iconIndex: task.icon_index || 0,
   folderId: task.folder_id,
+  resetCount: task.reset_count ?? 0,
+  resetHistory: Array.isArray(task.reset_history) ? task.reset_history : [],
 })
 
 // Helper: Convert app task to Supabase format
@@ -40,6 +46,8 @@ const toSupabaseTask = (task, userId) => ({
   last_done: task.date,
   color: task.color,
   icon_index: task.iconIndex ?? 0,
+  reset_count: task.resetCount ?? 0,
+  reset_history: task.resetHistory ?? [],
 })
 
 // Helper: Convert Supabase folder to app format
@@ -62,13 +70,21 @@ const toSupabaseFolder = (folder, userId) => ({
   is_default: folder.isDefault || false,
 })
 
+// Normalize task from storage (backward compat: add resetCount/resetHistory if missing)
+const normalizeTask = (task) => ({
+  ...task,
+  resetCount: task.resetCount ?? 0,
+  resetHistory: Array.isArray(task.resetHistory) ? task.resetHistory : [],
+})
+
 // LocalStorage helpers
 const loadFromLocalStorage = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultTasks
+      const tasks = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultTasks
+      return tasks.map(normalizeTask)
     }
   } catch (error) {
     console.error('Error loading from localStorage:', error)
@@ -318,8 +334,8 @@ export const dataService = {
 
         if (error) throw error
 
-        // Convert Supabase format to app format
-        const tasks = (data || []).map(fromSupabaseTask)
+        // Convert Supabase format to app format (normalize for backward compat)
+        const tasks = (data || []).map((t) => normalizeTask(fromSupabaseTask(t)))
         return tasks.length > 0 ? tasks : defaultTasks
       } catch (error) {
         console.error('Error loading from Supabase, falling back to localStorage:', error)
@@ -394,13 +410,17 @@ export const dataService = {
         if (!user) throw new Error('No user found')
 
         const supabaseUpdates = {
-          label: updates.label,
-          last_done: updates.date,
-          color: updates.color,
-          icon_index: updates.iconIndex ?? 0,
-          folder_id: updates.folderId || null,
+          label: updates.label !== undefined ? updates.label : undefined,
+          last_done: updates.date !== undefined ? updates.date : undefined,
+          color: updates.color !== undefined ? updates.color : undefined,
+          icon_index: updates.iconIndex !== undefined ? updates.iconIndex : undefined,
+          folder_id: updates.folderId !== undefined ? (updates.folderId || null) : undefined,
+          reset_count: updates.resetCount !== undefined ? updates.resetCount : undefined,
+          reset_history: updates.resetHistory !== undefined ? updates.resetHistory : undefined,
           updated_at: new Date().toISOString(),
         }
+        // Remove undefined keys so we don't overwrite with null
+        Object.keys(supabaseUpdates).forEach((k) => supabaseUpdates[k] === undefined && delete supabaseUpdates[k])
 
         const { data, error } = await supabase
           .from('tasks')
@@ -428,10 +448,91 @@ export const dataService = {
     // Guest mode: use localStorage
     const tasks = loadFromLocalStorage()
     const updatedTasks = tasks.map((t) =>
-      t.id === id ? { ...t, ...updates } : t
+      t.id === id ? normalizeTask({ ...t, ...updates }) : t
     )
     saveToLocalStorage(updatedTasks)
     return updatedTasks.find((t) => t.id === id)
+  },
+
+  /**
+   * Reset a task's timestamp to now and increment reset count.
+   * Persists to Supabase or localStorage. Returns the updated task.
+   */
+  async resetTask(id) {
+    const isAuth = await this.isAuthenticated()
+    const now = new Date().toISOString()
+
+    if (isAuth && supabase) {
+      try {
+        const user = await this.getCurrentUser()
+        if (!user) throw new Error('No user found')
+
+        // Fetch current task (select * so missing columns don't break)
+        const { data: existing } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single()
+
+        const resetCount = ((existing?.reset_count ?? 0) + 1)
+        const resetHistory = Array.isArray(existing?.reset_history) ? existing.reset_history : []
+        resetHistory.unshift(now)
+        const trimmed = resetHistory.slice(0, MAX_RESET_HISTORY)
+
+        const supabaseUpdates = {
+          last_done: now,
+          reset_count: resetCount,
+          reset_history: trimmed,
+          updated_at: now,
+        }
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .update(supabaseUpdates)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+
+        if (error) {
+          // If table lacks reset_count/reset_history, try updating only last_done
+          if (error.code === '42703' || error.message?.includes('reset_count') || error.message?.includes('reset_history')) {
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('tasks')
+              .update({ last_done: now, updated_at: now })
+              .eq('id', id)
+              .eq('user_id', user.id)
+              .select()
+              .single()
+            if (fallbackError) throw fallbackError
+            return normalizeTask(fromSupabaseTask(fallbackData))
+          }
+          throw error
+        }
+        return fromSupabaseTask(data)
+      } catch (error) {
+        console.error('Error resetting task in Supabase:', error)
+        throw error
+      }
+    }
+
+    return this.resetTaskLocal(id, now)
+  },
+
+  // Shared reset logic for localStorage (and Supabase fallback)
+  async resetTaskLocal(id, now) {
+    const tasks = loadFromLocalStorage()
+    const task = tasks.find((t) => t.id === id)
+    if (!task) return null
+    const resetCount = (task.resetCount ?? 0) + 1
+    const resetHistory = [...(task.resetHistory || [])]
+    resetHistory.unshift(now)
+    const trimmed = resetHistory.slice(0, MAX_RESET_HISTORY)
+    const updated = normalizeTask({ ...task, date: now, resetCount, resetHistory })
+    const updatedTasks = tasks.map((t) => (t.id === id ? updated : t))
+    saveToLocalStorage(updatedTasks)
+    return updated
   },
 
   // Delete task

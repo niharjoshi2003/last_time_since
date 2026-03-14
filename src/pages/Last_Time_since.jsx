@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Skull, Plus, Calendar, Folder } from 'lucide-react';
+import { Skull, Plus, Calendar, Folder, Clock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { dataService } from '../services/dataService';
 import AuthModal from '../components/AuthModal';
@@ -9,6 +9,7 @@ import TaskCard from '../components/tasks/TaskCard';
 import TaskModal from '../components/tasks/TaskModal';
 import FolderList from '../components/folders/FolderList';
 import FolderModal from '../components/folders/FolderModal';
+import Toast from '../components/Toast';
 import { COLOR_OPTIONS, ICON_OPTIONS } from '../constants/taskOptions';
 import { formatDateTimeLocal } from '../utils/formatTime';
 
@@ -35,10 +36,13 @@ const LastTimeSince = () => {
   const [formFolderColor, setFormFolderColor] = useState('#6366f1');
   const [formFolderIcon, setFormFolderIcon] = useState('📁');
   const [formFolderDescription, setFormFolderDescription] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
 
   // sidebar visibility for mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
   const [showFolders, setShowFolders] = useState(!isMobile);
+  const [folderTaskCounts, setFolderTaskCounts] = useState({});
 
   useEffect(() => {
     const handleResize = () => {
@@ -51,6 +55,15 @@ const LastTimeSince = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const computeFolderCounts = (allTasks) => {
+    const counts = { all: allTasks.length };
+    allTasks.forEach((t) => {
+      const fid = t.folderId || 'all';
+      counts[fid] = (counts[fid] || 0) + 1;
+    });
+    return counts;
+  };
+
   useEffect(() => {
     async function loadData() {
       if (authLoading) return;
@@ -59,9 +72,9 @@ const LastTimeSince = () => {
         const loadedFolders = await dataService.getFolders();
         setFolders(loadedFolders);
         setSelectedFolder(loadedFolders[0]); // Default to "All"
-        
         const loadedTasks = await dataService.getTasks(loadedFolders[0]?.id);
         setTasks(loadedTasks);
+        setFolderTaskCounts(computeFolderCounts(loadedTasks));
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -161,6 +174,8 @@ const LastTimeSince = () => {
         setTasks((prev) => [...prev, newTask]);
       }
       closeModal();
+      const allTasks = await dataService.getTasks('all');
+      setFolderTaskCounts(computeFolderCounts(allTasks));
     } catch (error) {
       console.error('Error saving task:', error);
       alert('Failed to save task. Please try again.');
@@ -223,10 +238,26 @@ const LastTimeSince = () => {
       try {
         await dataService.deleteTask(id);
         setTasks((prev) => prev.filter((t) => t.id !== id));
+        const allTasks = await dataService.getTasks('all');
+        setFolderTaskCounts(computeFolderCounts(allTasks));
       } catch (error) {
         console.error('Error deleting task:', error);
         alert('Failed to delete task. Please try again.');
       }
+    }
+  };
+
+  const handleReset = async (task) => {
+    try {
+      const updated = await dataService.resetTask(task.id);
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+      setToastMessage('Reset to now ✓');
+      setToastVisible(true);
+      const allTasks = await dataService.getTasks('all');
+      setFolderTaskCounts(computeFolderCounts(allTasks));
+    } catch (error) {
+      console.error('Error resetting task:', error);
+      alert('Failed to reset. If you use Supabase, add columns reset_count (int) and reset_history (jsonb) to the tasks table.');
     }
   };
 
@@ -260,16 +291,18 @@ const LastTimeSince = () => {
   const handleSignIn = async (email, password) => {
     const { error } = await signIn(email, password);
     if (!error) {
-      const loadedTasks = await dataService.getTasks();
+      const loadedTasks = await dataService.getTasks('all');
       setTasks(loadedTasks);
+      setFolderTaskCounts(computeFolderCounts(loadedTasks));
     }
     return { error };
   };
 
   const handleSignOut = async () => {
     await signOut();
-    const loadedTasks = await dataService.getTasks();
+    const loadedTasks = await dataService.getTasks('all');
     setTasks(loadedTasks);
+    setFolderTaskCounts(computeFolderCounts(loadedTasks));
   };
 
   if (authLoading || loading) {
@@ -309,105 +342,142 @@ const LastTimeSince = () => {
           <UserBadge user={user} onSignOut={handleSignOut} onOpenAuth={() => setAuthModalOpen(true)} />
         </div>
 
-        <div className="main-layout-with-folders">
-          {isMobile && (
-            <button
-              type="button"
-              className="btn btn-ghost folder-toggle"
-              onClick={() => setShowFolders((v) => !v)}
-            >
-              <Folder size={18} />
-              <span style={{ marginLeft: 6 }}>
-                {showFolders ? 'Hide folders' : 'Show folders'}
-              </span>
-            </button>
-          )}
-
-          {(!isMobile || showFolders) && (
-            <FolderList
-              folders={folders}
-              selectedFolder={selectedFolder}
-              onSelectFolder={handleFolderSelect}
-              onAddFolder={openAddFolder}
-              onEditFolder={openEditFolder}
-              onDeleteFolder={handleDeleteFolder}
-            />
-          )}
-
-          <div className="content-wrapper">
-          {selectedFolder && selectedFolder.id !== folders[0]?.id && (
-            <div className="filter-header">
-              <div className="filter-badge">
-                <span className="filter-icon" style={{ color: selectedFolder.color }}>
-                  {selectedFolder.icon || '📁'}
-                </span>
-                <div className="filter-info">
-                  <span className="filter-label">Viewing Folder</span>
-                  <span className="filter-name">{selectedFolder.name}</span>
-                </div>
+        <div className="main-content-wrap">
+          {/* 1. Hero / branding — first thing after nav */}
+          <header className="hero-section" aria-label="Last Time Since branding">
+            <div className="skull-container">
+              <div className="skull-wrapper">
+                <Skull className="skull-icon" aria-hidden />
+                <div className="skull-ping" aria-hidden="true" />
               </div>
-              <button
-                type="button"
-                className="btn-clear-filter"
-                onClick={() => handleFolderSelect(folders[0])}
-              >
-                View All
-              </button>
             </div>
-          )}
-
-          <div className="skull-container">
-            <div className="skull-wrapper">
-              <Skull className="skull-icon" aria-hidden="false" />
-              <div className="skull-ping" aria-hidden="true" />
-            </div>
-          </div>
-
-          <div className="header">
             <h1 className="title">
-              <div className="title-line-1">LAST TIME</div>
-              <div className="title-line-2">SINCE</div>
+              <span className="title-line-1">LAST TIME</span>
+              <span className="title-line-2">SINCE</span>
             </h1>
             <div className="divider-container">
               <div className="divider" />
             </div>
-            <p className="header-sub">{selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}</p>
-          </div>
+            <p className="header-sub">
+              {selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}
+            </p>
+          </header>
 
-          <div className="actions-bar">
-            <button type="button" className="btn-add" onClick={openAdd}>
-              <Plus className="btn-add-icon" />
-              <span>Add task</span>
-              <Calendar className="btn-add-cal" />
-            </button>
-          </div>
-
-          <div className="cards-grid">
-            {tasks.map((task) => {
-              const taskFolder = folders.find((f) => f.id === task.folderId) || null;
-              return (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  elapsed={elapsed}
-                  folder={taskFolder}
-                  onEdit={openEdit}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
-          </div>
-
-          <div className="footer page-hero-footer">
-            <div className="neon-container">
-              <div className="neon-flicker">
-                <span className="neon-text">LAST</span>
-                <span className="neon-text neon-delay">TIME</span>
+          {/* 2. Folder section: card panel with "Your folders", hide link, and list */}
+          <div className="main-layout-with-folders">
+            <div className={`folder-section-panel ${!isMobile || showFolders ? 'folder-section-open' : 'folder-section-closed'}`}>
+              <div className="folder-section-header">
+                <span className="folder-section-label">Your folders</span>
+                {isMobile && (
+                  <button
+                    type="button"
+                    className="folder-section-hide-link"
+                    onClick={() => setShowFolders((v) => !v)}
+                    aria-expanded={showFolders}
+                    aria-label={showFolders ? 'Hide folders' : 'Show folders'}
+                  >
+                    {showFolders ? 'Hide folders' : 'Show folders'}
+                  </button>
+                )}
               </div>
-              <div className="neon-glow-bg" />
+              {(!isMobile || showFolders) && (
+                <FolderList
+                  folders={folders}
+                  selectedFolder={selectedFolder}
+                  folderTaskCounts={folderTaskCounts}
+                  onSelectFolder={handleFolderSelect}
+                  onAddFolder={openAddFolder}
+                  onEditFolder={openEditFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                />
+              )}
+            </div>
+
+            <div className="content-wrapper">
+              {selectedFolder && selectedFolder.id !== folders[0]?.id && (
+                <div className="filter-header">
+                  <div className="filter-badge">
+                    <span className="filter-icon" style={{ color: selectedFolder.color }}>
+                      {selectedFolder.icon || '📁'}
+                    </span>
+                    <div className="filter-info">
+                      <span className="filter-label">Viewing Folder</span>
+                      <span className="filter-name">{selectedFolder.name}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-clear-filter"
+                    onClick={() => handleFolderSelect(folders[0])}
+                  >
+                    View All
+                  </button>
+                </div>
+              )}
+
+              {/* 3. Add task (in flow; hidden on mobile where sticky CTA is shown) + 4. Task cards */}
+              <div className="actions-bar actions-bar-inline">
+                <button type="button" className="btn-add btn-add-inline" onClick={openAdd}>
+                  <Plus className="btn-add-icon" aria-hidden />
+                  <span>Add task</span>
+                  <Calendar className="btn-add-cal" aria-hidden />
+                </button>
+              </div>
+
+          {tasks.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <Clock size={48} aria-hidden />
+              </div>
+              <h2 className="empty-state-title">No tasks yet</h2>
+              <p className="empty-state-text">
+                {selectedFolder?.id === folders[0]?.id
+                  ? 'Add your first task to start tracking.'
+                  : 'No tasks in this folder. Add one or switch to All.'}
+              </p>
+              <button type="button" className="btn-add empty-state-cta" onClick={openAdd}>
+                <Plus size={20} aria-hidden />
+                <span>Add task</span>
+              </button>
+            </div>
+          ) : (
+            <div className="cards-grid">
+              {tasks.map((task) => {
+                const taskFolder = folders.find((f) => f.id === task.folderId) || null;
+                return (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    elapsed={elapsed}
+                    folder={taskFolder}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    onReset={handleReset}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+              <div className="footer page-hero-footer">
+                <div className="neon-container">
+                  <div className="neon-flicker">
+                    <span className="neon-text">LAST</span>
+                    <span className="neon-text neon-delay">TIME</span>
+                  </div>
+                  <div className="neon-glow-bg" />
+                </div>
+              </div>
             </div>
           </div>
-          </div>
+        </div>
+
+        {/* Sticky bottom CTA on mobile — always visible so users can add task without scrolling */}
+        <div className="sticky-add-task">
+          <button type="button" className="btn-add sticky-add-task-btn" onClick={openAdd} aria-label="Add task">
+            <Plus className="btn-add-icon" aria-hidden />
+            <span>Add task</span>
+          </button>
         </div>
 
         <div className="corner-accent corner-top-right" />
@@ -458,6 +528,12 @@ const LastTimeSince = () => {
           onContinueAsGuest={() => {}}
           migrating={migrating}
           migratedCount={migratedCount}
+        />
+
+        <Toast
+          message={toastMessage}
+          visible={toastVisible}
+          onDismiss={() => setToastVisible(false)}
         />
       </div>
     </Layout>

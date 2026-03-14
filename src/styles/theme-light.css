@@ -28,15 +28,25 @@
 [data-theme="light"] .header-sub { color: #64748b; }
 
 /* Folder styles */
-[data-theme="light"] .folder-sidebar {
+[data-theme="light"] .folder-section-panel {
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
+[data-theme="light"] .folder-section-label { color: #64748b; }
+[data-theme="light"] .folder-section-hide-link { color: #dc2626; }
+
+[data-theme="light"] .folder-sidebar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
 [data-theme="light"] .folder-sidebar-title { color: #64748b; }
 
-[data-theme="light"] .folder-count {
+[data-theme="light"] .folder-count,
+[data-theme="light"] .folder-item-count-badge {
   background: rgba(220, 38, 38, 0.15);
   color: #dc2626;
 }
@@ -338,3 +348,12 @@
 [data-theme="light"] .page-content em { color: #475569; }
 [data-theme="light"] .page-content a { color: #dc2626; text-decoration: underline; }
 [data-theme="light"] .page-content a:hover { color: #b91c1c; }
+
+[data-theme="light"] .sticky-add-task {
+  background: rgba(248, 250, 252, 0.98);
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .hero-section {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}

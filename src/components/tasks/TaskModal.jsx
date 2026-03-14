@@ -26,8 +26,8 @@ const TaskModal = ({
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{editingId ? 'Edit task' : 'New task'}</h2>
-          <button type="button" className="modal-close" onClick={onClose}>
-            <X size={24} />
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close modal">
+            <X size={24} aria-hidden />
           </button>
         </div>
         <form className="modal-form" onSubmit={onSubmit}>

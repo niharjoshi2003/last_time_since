@@ -16,3 +16,10 @@ export const formatTime = (ms) => {
   if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
   return `${seconds}s`;
 };
+
+/** Human-friendly elapsed text; use "Just now" when under 60 seconds */
+export const formatTimeAgo = (ms) => {
+  if (ms == null) return '—';
+  if (ms < 60 * 1000) return 'Just now';
+  return formatTime(ms);
+};
