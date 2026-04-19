@@ -4,7 +4,7 @@ import './index.css';
 import './styles/base.css';
 import './styles/theme-light.css';
 import './styles/theme-dark.css';
-import './styles/theme-ultra-love.css';
+import './styles/home.css';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

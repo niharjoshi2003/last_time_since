@@ -1,50 +1,79 @@
 import React from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { ICON_OPTIONS } from '../../constants/taskOptions';
-import { formatTime } from '../../utils/formatTime';
+import { formatElapsedParts } from '../../utils/formatTime';
 
-const TaskCard = ({ task, elapsed, onEdit, onDelete, folder }) => {
+const TaskCard = ({ task, elapsed, onEdit, onDelete, onReset, showPerson = false }) => {
   const { Icon } = ICON_OPTIONS[task.iconIndex ?? 0] || ICON_OPTIONS[0];
   const timeElapsed = elapsed[task.id];
+  const parts = formatElapsedParts(timeElapsed);
+  const resets = task.resetCount ?? 0;
 
   return (
-    <div
-      className="card"
-      style={{
-        background: `linear-gradient(135deg, ${task.color}40 0%, ${task.color}10 50%, transparent 100%)`,
-        boxShadow: `0 0 60px -15px ${task.color}80`,
-      }}
+    <article
+      className="task-card-v2"
+      style={{ '--task-accent': task.color }}
     >
-      <div className="card-overlay" />
-      <div className="card-gradient" />
-      <div className="card-actions">
-        <button type="button" className="card-btn card-btn-edit" onClick={() => onEdit(task)} title="Edit">
-          <Pencil size={16} />
-        </button>
-        <button type="button" className="card-btn card-btn-delete" onClick={() => onDelete(task.id)} title="Delete">
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <div className="card-content">
-        <div className="icon-container">
-          <div className="icon-wrapper">
-            <Icon className="activity-icon" style={{ color: task.color }} />
-            <div className="icon-ping" />
-          </div>
+      <div className="task-card-v2__accent" aria-hidden />
+      <div className="task-card-v2__top">
+        <div className="task-card-v2__icon-wrap" aria-hidden>
+          <Icon className="task-card-v2__icon" size={22} style={{ color: task.color }} />
         </div>
-        <h3 className="activity-label">{task.label}</h3>
-        {folder && (
-          <div className="task-folder-label" style={{ color: folder.color }}>
-            {folder.icon} {folder.name}
+        <div className="task-card-v2__label-wrap">
+          <h3 className="task-card-v2__label">{task.label}</h3>
+          {showPerson ? <span className="task-card-v2__person-chip">{task.person}</span> : null}
+        </div>
+      </div>
+
+      <div className="task-card-v2__elapsed" aria-live="polite">
+        {parts ? (
+          <div className="task-card-v2__elapsed-inner">
+            {parts.map((p, i) => (
+              <span key={`${p.u}-${i}`} className="task-card-v2__part">
+                <span className="task-card-v2__num" style={{ color: task.color }}>
+                  {p.n}
+                </span>
+                <span className="task-card-v2__unit">{p.u}</span>
+              </span>
+            ))}
           </div>
+        ) : (
+          <span className="task-card-v2__dash">—</span>
         )}
-        <div className="time-display">
-          <div className="time-value" style={{ color: task.color }}>{formatTime(timeElapsed)}</div>
-          <div className="time-suffix">since then</div>
-        </div>
-        <div className="card-bottom-line" style={{ background: `linear-gradient(to right, transparent, ${task.color}60, transparent)` }} />
+        <span className="task-card-v2__suffix">since</span>
       </div>
-    </div>
+
+      <div className="task-card-v2__meta">
+        <span className="task-card-v2__resets">Reset: {resets}×</span>
+      </div>
+
+      <div className="task-card-v2__actions">
+        <button
+          type="button"
+          className="task-card-v2__btn task-card-v2__btn--edit"
+          onClick={() => onEdit(task)}
+          aria-label={`Edit ${task.label}`}
+        >
+          <Pencil size={20} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="task-card-v2__btn task-card-v2__btn--reset"
+          onClick={() => onReset(task.id)}
+          aria-label={`Reset timer for ${task.label}`}
+        >
+          <RotateCcw size={20} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="task-card-v2__btn task-card-v2__btn--delete"
+          onClick={() => onDelete(task.id)}
+          aria-label={`Delete ${task.label}`}
+        >
+          <Trash2 size={20} aria-hidden />
+        </button>
+      </div>
+    </article>
   );
 };
 

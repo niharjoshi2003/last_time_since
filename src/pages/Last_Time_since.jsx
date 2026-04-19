@@ -1,75 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import { Skull, Plus, Calendar, Folder } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { dataService } from '../services/dataService';
-import AuthModal from '../components/AuthModal';
-import UserBadge from '../components/UserBadge';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Timer, Plus, Sparkles, Users, RotateCcw } from 'lucide-react';
+import { dataService, DEFAULT_PERSON } from '../services/dataService';
 import Layout from '../components/layout/Layout';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskModal from '../components/tasks/TaskModal';
-import FolderList from '../components/folders/FolderList';
-import FolderModal from '../components/folders/FolderModal';
 import { COLOR_OPTIONS, ICON_OPTIONS } from '../constants/taskOptions';
 import { formatDateTimeLocal } from '../utils/formatTime';
 
+const TOAST_MS = 3200;
+const ALL_PEOPLE_FILTER = '__all__';
+
+const normalizePerson = (value) => {
+  if (typeof value !== 'string') return DEFAULT_PERSON;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  return normalized || DEFAULT_PERSON;
+};
+
+const sortPeople = (a, b) => {
+  if (a === DEFAULT_PERSON && b !== DEFAULT_PERSON) return 1;
+  if (b === DEFAULT_PERSON && a !== DEFAULT_PERSON) return -1;
+  return a.localeCompare(b);
+};
+
 const LastTimeSince = () => {
-  const { user, loading: authLoading, signUp, signIn, signOut } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [folders, setFolders] = useState([]);
-  const [selectedFolder, setSelectedFolder] = useState(null);
   const [elapsed, setElapsed] = useState({});
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [folderModalOpen, setFolderModalOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [migrating, setMigrating] = useState(false);
-  const [migratedCount, setMigratedCount] = useState(0);
   const [editingId, setEditingId] = useState(null);
-  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [editingResetCount, setEditingResetCount] = useState(0);
+  const [activePerson, setActivePerson] = useState(ALL_PEOPLE_FILTER);
+  const [formPerson, setFormPerson] = useState('');
   const [formLabel, setFormLabel] = useState('');
   const [formDate, setFormDate] = useState('');
   const [formColor, setFormColor] = useState(COLOR_OPTIONS[0]);
   const [formIconIndex, setFormIconIndex] = useState(0);
-  const [formFolderId, setFormFolderId] = useState(null);
-  const [formFolderName, setFormFolderName] = useState('');
-  const [formFolderColor, setFormFolderColor] = useState('#6366f1');
-  const [formFolderIcon, setFormFolderIcon] = useState('📁');
-  const [formFolderDescription, setFormFolderDescription] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
-  // sidebar visibility for mobile
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
-  const [showFolders, setShowFolders] = useState(!isMobile);
+  const showToast = useCallback((message) => {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, TOAST_MS);
+  }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth <= 640;
-      setIsMobile(mobile);
-      if (!mobile) setShowFolders(true);
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+    setEditingId(null);
   }, []);
 
   useEffect(() => {
-    async function loadData() {
-      if (authLoading) return;
-      setLoading(true);
-      try {
-        const loadedFolders = await dataService.getFolders();
-        setFolders(loadedFolders);
-        setSelectedFolder(loadedFolders[0]); // Default to "All"
-        
-        const loadedTasks = await dataService.getTasks(loadedFolders[0]?.id);
-        setTasks(loadedTasks);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
+    setLoading(true);
+    try {
+      setTasks(dataService.getTasks());
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    } finally {
+      setLoading(false);
     }
-    loadData();
-  }, [user, authLoading]);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -83,82 +75,116 @@ const LastTimeSince = () => {
     return () => clearInterval(interval);
   }, [tasks]);
 
-  const openAdd = () => {
+  useEffect(() => {
+    if (!modalOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen, closeModal]);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
+  const people = useMemo(() => {
+    const unique = Array.from(new Set(tasks.map((task) => normalizePerson(task.person))));
+    return unique.sort(sortPeople);
+  }, [tasks]);
+
+  useEffect(() => {
+    if (activePerson !== ALL_PEOPLE_FILTER && !people.includes(activePerson)) {
+      setActivePerson(ALL_PEOPLE_FILTER);
+    }
+  }, [activePerson, people]);
+
+  const countByPerson = useMemo(() => {
+    const map = {};
+    tasks.forEach((task) => {
+      const person = normalizePerson(task.person);
+      map[person] = (map[person] || 0) + 1;
+    });
+    return map;
+  }, [tasks]);
+
+  const groupedTasks = useMemo(() => {
+    const scoped = activePerson === ALL_PEOPLE_FILTER
+      ? tasks
+      : tasks.filter((task) => normalizePerson(task.person) === activePerson);
+
+    const map = {};
+    scoped.forEach((task) => {
+      const person = normalizePerson(task.person);
+      if (!map[person]) map[person] = [];
+      map[person].push(task);
+    });
+
+    return Object.entries(map)
+      .map(([person, personTasks]) => ({
+        person,
+        tasks: [...personTasks].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      }))
+      .sort((a, b) => sortPeople(a.person, b.person));
+  }, [tasks, activePerson]);
+
+  const visibleTaskCount = useMemo(
+    () => groupedTasks.reduce((acc, group) => acc + group.tasks.length, 0),
+    [groupedTasks],
+  );
+
+  const totalResets = useMemo(
+    () => tasks.reduce((acc, task) => acc + (task.resetCount || 0), 0),
+    [tasks],
+  );
+
+  const topPerson = useMemo(() => {
+    if (!people.length) return '—';
+    return [...people].sort((a, b) => (countByPerson[b] || 0) - (countByPerson[a] || 0))[0] || '—';
+  }, [people, countByPerson]);
+
+  const openAdd = useCallback((preferredPerson = '') => {
     setEditingId(null);
+    setEditingResetCount(0);
+    setFormPerson(preferredPerson || (activePerson !== ALL_PEOPLE_FILTER ? activePerson : ''));
     setFormLabel('');
     const now = new Date();
     now.setSeconds(0, 0);
     setFormDate(formatDateTimeLocal(now.toISOString()));
     setFormColor(COLOR_OPTIONS[tasks.length % COLOR_OPTIONS.length]);
     setFormIconIndex(tasks.length % ICON_OPTIONS.length);
-    setFormFolderId(selectedFolder?.id === 'all' ? null : selectedFolder?.id);
     setModalOpen(true);
-  };
+  }, [activePerson, tasks.length]);
 
   const openEdit = (task) => {
     setEditingId(task.id);
+    setEditingResetCount(task.resetCount ?? 0);
+    setFormPerson(normalizePerson(task.person));
     setFormLabel(task.label);
     setFormDate(formatDateTimeLocal(task.date));
     setFormColor(task.color);
     setFormIconIndex(task.iconIndex ?? 0);
-    setFormFolderId(task.folderId);
     setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditingId(null);
-  };
-
-  const openAddFolder = () => {
-    setEditingFolderId(null);
-    setFormFolderName('');
-    setFormFolderColor('#6366f1');
-    setFormFolderIcon('📁');
-    setFormFolderDescription('');
-    setFolderModalOpen(true);
-  };
-
-  const openEditFolder = (folder) => {
-    setEditingFolderId(folder.id);
-    setFormFolderName(folder.name);
-    setFormFolderColor(folder.color);
-    setFormFolderIcon(folder.icon);
-    setFormFolderDescription(folder.description || '');
-    setFolderModalOpen(true);
-  };
-
-  const closeFolderModal = () => {
-    setFolderModalOpen(false);
-    setEditingFolderId(null);
-  };
-
-  const handleFolderSelect = async (folder) => {
-    setSelectedFolder(folder);
-    try {
-      const loadedTasks = await dataService.getTasks(folder.id);
-      setTasks(loadedTasks);
-    } catch (error) {
-      console.error('Error loading tasks for folder:', error);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    const person = normalizePerson(formPerson);
     const label = formLabel.trim();
     if (!label || !formDate) return;
     const date = new Date(formDate).toISOString();
     const color = formColor || COLOR_OPTIONS[0];
     const iconIndex = formIconIndex ?? 0;
-    const folderId = formFolderId;
 
     try {
       if (editingId) {
-        const updated = await dataService.updateTask(editingId, { label, date, color, iconIndex, folderId });
+        const updated = dataService.updateTask(editingId, { person, label, date, color, iconIndex });
         setTasks((prev) => prev.map((t) => (t.id === editingId ? updated : t)));
+        showToast('Task saved.');
       } else {
-        const newTask = await dataService.addTask({ label, date, color, iconIndex, folderId });
+        const newTask = dataService.addTask({ person, label, date, color, iconIndex });
         setTasks((prev) => [...prev, newTask]);
+        showToast(`Task added for ${newTask.person}.`);
       }
       closeModal();
     } catch (error) {
@@ -167,62 +193,14 @@ const LastTimeSince = () => {
     }
   };
 
-  const handleFolderSubmit = async (e) => {
-    e.preventDefault();
-    const name = formFolderName.trim();
-    if (!name) return;
-
-    try {
-      if (editingFolderId) {
-        const updated = await dataService.updateFolder(editingFolderId, {
-          name,
-          color: formFolderColor,
-          icon: formFolderIcon,
-          description: formFolderDescription,
-        });
-        setFolders((prev) => prev.map((f) => (f.id === editingFolderId ? updated : f)));
-        if (selectedFolder?.id === editingFolderId) {
-          setSelectedFolder(updated);
-        }
-      } else {
-        const newFolder = await dataService.addFolder({
-          name,
-          color: formFolderColor,
-          icon: formFolderIcon,
-          description: formFolderDescription,
-          isDefault: false,
-        });
-        setFolders((prev) => [...prev, newFolder]);
-      }
-      closeFolderModal();
-    } catch (error) {
-      console.error('Error saving folder:', error);
-      alert('Failed to save folder. Please try again.');
-    }
-  };
-
-  const handleDeleteFolder = async (folderId) => {
-    try {
-      await dataService.deleteFolder(folderId);
-      setFolders((prev) => prev.filter((f) => f.id !== folderId));
-      // If deleted folder was selected, go to "All"
-      if (selectedFolder?.id === folderId) {
-        const allFolder = folders.find((f) => f.id === 'all');
-        if (allFolder) {
-          handleFolderSelect(allFolder);
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting folder:', error);
-      alert('Failed to delete folder. Please try again.');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('Delete this task?')) {
+  const handleDelete = (id) => {
+    const task = tasks.find((t) => t.id === id);
+    const name = task?.label ?? 'this task';
+    if (window.confirm(`Delete “${name}”?`)) {
       try {
-        await dataService.deleteTask(id);
+        dataService.deleteTask(id);
         setTasks((prev) => prev.filter((t) => t.id !== id));
+        showToast('Task deleted.');
       } catch (error) {
         console.error('Error deleting task:', error);
         alert('Failed to delete task. Please try again.');
@@ -230,55 +208,25 @@ const LastTimeSince = () => {
     }
   };
 
-  const handleSignUp = async (email, password) => {
-    const { user: newUser, error } = await signUp(email, password);
-    if (newUser && !error) {
-      setMigrating(true);
-      try {
-        const result = await dataService.migrateLocalToCloud(newUser.id);
-        if (result.success) {
-          setMigratedCount(result.migrated || 0);
-          const loadedTasks = await dataService.getTasks();
-          setTasks(loadedTasks);
-          setTimeout(() => {
-            setMigrating(false);
-            setAuthModalOpen(false);
-            setMigratedCount(0);
-          }, 2000);
-        } else {
-          setMigrating(false);
-          return { error: result.error || 'Migration failed' };
-        }
-      } catch (error) {
-        setMigrating(false);
-        return { error: error.message || 'Migration failed' };
-      }
+  const handleReset = (id) => {
+    try {
+      const updated = dataService.resetTask(id);
+      if (!updated) return;
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      showToast(`Task reset to now. Resets: ${updated.resetCount}`);
+    } catch (error) {
+      console.error('Error resetting task:', error);
+      alert('Failed to reset task. Please try again.');
     }
-    return { error };
   };
 
-  const handleSignIn = async (email, password) => {
-    const { error } = await signIn(email, password);
-    if (!error) {
-      const loadedTasks = await dataService.getTasks();
-      setTasks(loadedTasks);
-    }
-    return { error };
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    const loadedTasks = await dataService.getTasks();
-    setTasks(loadedTasks);
-  };
-
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <Layout>
-        <div className="app-container">
+        <div className="lts-page lts-page--loading">
           <div className="loading-screen">
             <div className="loading-spinner" />
-            <p>Loading...</p>
+            <p>Loading…</p>
           </div>
         </div>
       </Layout>
@@ -287,141 +235,165 @@ const LastTimeSince = () => {
 
   return (
     <Layout>
-      <div className="app-container">
-        <div className="background-vignette" />
-        <div className="animated-blobs">
-          <div className="blob blob-1" />
-          <div className="blob blob-2" />
-          <div className="blob blob-3" />
+      <div className="lts-page">
+        <div className="lts-bg" aria-hidden>
+          <div className="lts-orb lts-orb--one" />
+          <div className="lts-orb lts-orb--two" />
+          <div className="lts-orb lts-orb--three" />
         </div>
-        <div className="grain-overlay" />
 
-        <div className="skull-container">
-            <div className="skull-wrapper">
-              <Skull className="skull-icon" aria-hidden="false" />
-              <div className="skull-ping" aria-hidden="true" />
+        <header className="lts-hero lts-glass">
+          <div className="lts-hero__top">
+            <div className="lts-hero__icon" aria-hidden>
+              <Timer size={40} strokeWidth={1.75} />
             </div>
+            <button type="button" className="lts-btn-secondary lts-toolbar__btn lts-toolbar__btn-desktop" onClick={() => openAdd()}>
+              <Plus size={20} aria-hidden />
+              <span>Add task</span>
+            </button>
           </div>
-
-        <div className="header">
-            <h1 className="title">
-              <div className="title-line-1">LAST TIME</div>
-              <div className="title-line-2">SINCE</div>
-            </h1>
-            <div className="divider-container">
-              <div className="divider" />
-            </div>
-            <p className="header-sub">{selectedFolder?.id === folders[0]?.id ? 'Track anything. Add and edit your own.' : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} in this folder`}</p>
+          <p className="lts-hero__eyebrow">for hearts that remember</p>
+          <h1 className="lts-hero__title">
+            Last Time <span>Since</span>
+          </h1>
+          <p className="lts-hero__sub">
+            Know exactly how long it has been - texts, calls, meetings, and everything in between.
+          </p>
+          <p className="lts-privacy-note">
+            Private by default. Stored only on your device.
+          </p>
+          <div className="lts-stats">
+            <article className="lts-stat">
+              <span className="lts-stat__label">People</span>
+              <strong className="lts-stat__value"><Users size={14} aria-hidden />{people.length}</strong>
+            </article>
+            <article className="lts-stat">
+              <span className="lts-stat__label">Visible tasks</span>
+              <strong className="lts-stat__value"><Sparkles size={14} aria-hidden />{visibleTaskCount}</strong>
+            </article>
+            <article className="lts-stat">
+              <span className="lts-stat__label">Total resets</span>
+              <strong className="lts-stat__value"><RotateCcw size={14} aria-hidden />{totalResets}</strong>
+            </article>
+            <article className="lts-stat">
+              <span className="lts-stat__label">Most tracked</span>
+              <strong className="lts-stat__value">{topPerson}</strong>
+            </article>
           </div>
+        </header>
 
-        {!user && (
-          <div className="guest-banner">
-            {/* <div className="guest-banner-content">
-              <span className="guest-banner-icon">📱</span>
-              <span className="guest-banner-text">Using in Guest Mode - Data saved on this device only</span>
-            </div> */}
+        <div className="lts-toolbar">
+          <button type="button" className="lts-btn-secondary lts-toolbar__btn" onClick={() => openAdd()}>
+            <Plus size={20} aria-hidden />
+            <span>Add task</span>
+          </button>
+        </div>
+
+        <section className="lts-people-shell" aria-label="Filter by person">
+          <div className="lts-people-scroll">
+            <button
+              type="button"
+              className={`lts-person-chip ${activePerson === ALL_PEOPLE_FILTER ? 'active' : ''}`}
+              onClick={() => setActivePerson(ALL_PEOPLE_FILTER)}
+              aria-pressed={activePerson === ALL_PEOPLE_FILTER}
+            >
+              All
+              <span>{tasks.length}</span>
+            </button>
+            {people.map((person) => (
+              <button
+                key={person}
+                type="button"
+                className={`lts-person-chip ${activePerson === person ? 'active' : ''}`}
+                onClick={() => setActivePerson(person)}
+                aria-pressed={activePerson === person}
+              >
+                {person}
+                <span>{countByPerson[person] || 0}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {tasks.length === 0 || visibleTaskCount === 0 ? (
+          <div className="lts-empty-panel">
+            <p className="lts-empty">
+              {tasks.length === 0
+                ? 'No tasks yet. Create your first tracker.'
+                : 'No tasks for this person yet. Create one now.'}
+            </p>
+            <button
+              type="button"
+              className="lts-btn-secondary lts-empty-panel__btn"
+              onClick={() => openAdd(activePerson !== ALL_PEOPLE_FILTER ? activePerson : '')}
+            >
+              <Plus size={20} aria-hidden />
+              <span>New tracker</span>
+            </button>
+          </div>
+        ) : (
+          <div className="lts-groups">
+            {groupedTasks.map((group) => (
+              <section key={group.person} className="lts-group-card">
+                <header className="lts-group-card__header">
+                  <div className="lts-group-person">
+                    <div className="lts-group-avatar" aria-hidden>{group.person.slice(0, 1).toUpperCase()}</div>
+                    <div className="lts-group-copy">
+                      <h2>{group.person}</h2>
+                      <p>{group.tasks.length} tracker{group.tasks.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="lts-group-add"
+                    onClick={() => openAdd(group.person)}
+                    aria-label={`Add task for ${group.person}`}
+                  >
+                    <Plus size={18} aria-hidden />
+                  </button>
+                </header>
+                <div className="lts-grid">
+                  {group.tasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      elapsed={elapsed}
+                      onEdit={openEdit}
+                      onDelete={handleDelete}
+                      onReset={handleReset}
+                      showPerson={activePerson === ALL_PEOPLE_FILTER}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         )}
 
-        <div className="user-badge-container">
-          <UserBadge user={user} onSignOut={handleSignOut} onOpenAuth={() => setAuthModalOpen(true)} />
-        </div>
+        <button
+          type="button"
+          className="lts-fab"
+          onClick={() => openAdd(activePerson !== ALL_PEOPLE_FILTER ? activePerson : '')}
+          aria-label="Add task"
+        >
+          <Plus size={28} strokeWidth={2.25} aria-hidden />
+        </button>
 
-        <div className="main-layout-with-folders">
-          {isMobile && (
-            <button
-              type="button"
-              className="btn btn-ghost folder-toggle"
-              onClick={() => setShowFolders((v) => !v)}
-            >
-              <Folder size={18} />
-              <span style={{ marginLeft: 6 }}>
-                {showFolders ? 'Hide folders' : 'Show folders'}
-              </span>
-            </button>
-          )}
-
-          {(!isMobile || showFolders) && (
-            <FolderList
-              folders={folders}
-              selectedFolder={selectedFolder}
-              onSelectFolder={handleFolderSelect}
-              onAddFolder={openAddFolder}
-              onEditFolder={openEditFolder}
-              onDeleteFolder={handleDeleteFolder}
-            />
-          )}
-
-          <div className="content-wrapper">
-          {selectedFolder && selectedFolder.id !== folders[0]?.id && (
-            <div className="filter-header">
-              <div className="filter-badge">
-                <span className="filter-icon" style={{ color: selectedFolder.color }}>
-                  {selectedFolder.icon || '📁'}
-                </span>
-                <div className="filter-info">
-                  <span className="filter-label">Viewing Folder</span>
-                  <span className="filter-name">{selectedFolder.name}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="btn-clear-filter"
-                onClick={() => handleFolderSelect(folders[0])}
-              >
-                View All
-              </button>
-            </div>
-          )}
-
-          
-
-          
-
-          <div className="actions-bar">
-            <button type="button" className="btn-add" onClick={openAdd}>
-              <Plus className="btn-add-icon" />
-              <span>Add task</span>
-              <Calendar className="btn-add-cal" />
-            </button>
+        {toast ? (
+          <div className="lts-toast" role="status" aria-live="polite">
+            {toast}
           </div>
-
-          <div className="cards-grid">
-            {tasks.map((task) => {
-              const taskFolder = folders.find((f) => f.id === task.folderId) || null;
-              return (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  elapsed={elapsed}
-                  folder={taskFolder}
-                  onEdit={openEdit}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
-          </div>
-
-          <div className="footer page-hero-footer">
-            <div className="neon-container">
-              <div className="neon-flicker">
-                <span className="neon-text">LAST</span>
-                <span className="neon-text neon-delay">TIME</span>
-              </div>
-              <div className="neon-glow-bg" />
-            </div>
-          </div>
-          </div>
-        </div>
-
-        <div className="corner-accent corner-top-right" />
-        <div className="corner-accent corner-bottom-left" />
+        ) : null}
 
         <TaskModal
           isOpen={modalOpen}
           onClose={closeModal}
           onSubmit={handleSubmit}
           editingId={editingId}
+          editingResetCount={editingResetCount}
+          formPerson={formPerson}
+          setFormPerson={setFormPerson}
+          personOptions={people}
           formLabel={formLabel}
           setFormLabel={setFormLabel}
           formDate={formDate}
@@ -430,38 +402,6 @@ const LastTimeSince = () => {
           setFormColor={setFormColor}
           formIconIndex={formIconIndex}
           setFormIconIndex={setFormIconIndex}
-          folders={folders}
-          formFolderId={formFolderId}
-          setFormFolderId={setFormFolderId}
-        />
-
-        <FolderModal
-          isOpen={folderModalOpen}
-          onClose={closeFolderModal}
-          onSubmit={handleFolderSubmit}
-          editingFolder={editingFolderId}
-          formName={formFolderName}
-          setFormName={setFormFolderName}
-          formColor={formFolderColor}
-          setFormColor={setFormFolderColor}
-          formIcon={formFolderIcon}
-          setFormIcon={setFormFolderIcon}
-          formDescription={formFolderDescription}
-          setFormDescription={setFormFolderDescription}
-        />
-
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={() => {
-            setAuthModalOpen(false);
-            setMigrating(false);
-            setMigratedCount(0);
-          }}
-          onSignUp={handleSignUp}
-          onSignIn={handleSignIn}
-          onContinueAsGuest={() => {}}
-          migrating={migrating}
-          migratedCount={migratedCount}
         />
       </div>
     </Layout>

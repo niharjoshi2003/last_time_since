@@ -1,79 +1,40 @@
-import { supabase } from '../config/supabase'
-
 const STORAGE_KEY = 'lasttimesince_tasks'
-const FOLDERS_STORAGE_KEY = 'lasttimesince_folders'
+export const DEFAULT_PERSON = 'General'
 
-// Default tasks for new users
-const defaultTasks = [
-  { id: '1', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0, folderId: null },
-  { id: '2', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1, folderId: null },
-  { id: '3', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2, folderId: null },
-  { id: '4', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3, folderId: null },
-  { id: '5', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4, folderId: null },
-]
-
-// Default folder for "All"
-const defaultFolder = {
-  id: 'all',
-  name: 'All',
-  color: '#6366f1',
-  icon: '',
-  description: 'All tracked activities',
-  isDefault: true,
+const normalizePerson = (person) => {
+  if (typeof person !== 'string') return DEFAULT_PERSON
+  const normalized = person.trim().replace(/\s+/g, ' ')
+  return normalized || DEFAULT_PERSON
 }
 
-// Helper: Convert Supabase task to app format
-const fromSupabaseTask = (task) => ({
-  id: task.id,
-  label: task.label,
-  date: task.last_done,
-  color: task.color || '#6366f1',
-  iconIndex: task.icon_index || 0,
-  folderId: task.folder_id,
+const defaultTasks = [
+  { id: '1', person: 'Her', label: 'i texted her', date: '2025-12-08T23:47:00', color: '#dc2626', iconIndex: 0, resetCount: 0 },
+  { id: '2', person: 'Her', label: 'i saw her', date: '2025-12-22T17:47:00', color: '#f43f5e', iconIndex: 1, resetCount: 0 },
+  { id: '3', person: 'Personal', label: 'i smoked joint', date: '2025-12-06T22:38:00', color: '#10b981', iconIndex: 2, resetCount: 0 },
+  { id: '4', person: 'Personal', label: 'i smoked cigarette', date: '2025-12-22T18:38:00', color: '#6b7280', iconIndex: 3, resetCount: 0 },
+  { id: '5', person: 'Personal', label: 'i drank alcohol', date: '2025-12-06T23:48:00', color: '#9333ea', iconIndex: 4, resetCount: 0 },
+]
+
+export const normalizeTask = (task) => ({
+  ...task,
+  resetCount: typeof task.resetCount === 'number' && !Number.isNaN(task.resetCount) ? task.resetCount : 0,
+  iconIndex: task.iconIndex ?? 0,
+  person: normalizePerson(task.person),
 })
 
-// Helper: Convert app task to Supabase format
-const toSupabaseTask = (task, userId) => ({
-  user_id: userId,
-  folder_id: task.folderId || null,
-  label: task.label,
-  last_done: task.date,
-  color: task.color,
-  icon_index: task.iconIndex ?? 0,
-})
-
-// Helper: Convert Supabase folder to app format
-const fromSupabaseFolder = (folder) => ({
-  id: folder.id,
-  name: folder.name,
-  color: folder.color,
-  icon: folder.icon,
-  description: folder.description,
-  isDefault: folder.is_default,
-})
-
-// Helper: Convert app folder to Supabase format
-const toSupabaseFolder = (folder, userId) => ({
-  user_id: userId,
-  name: folder.name,
-  color: folder.color,
-  icon: folder.icon,
-  description: folder.description,
-  is_default: folder.isDefault || false,
-})
-
-// LocalStorage helpers
 const loadFromLocalStorage = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultTasks
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeTask)
+      }
     }
   } catch (error) {
     console.error('Error loading from localStorage:', error)
   }
-  return defaultTasks
+  return defaultTasks.map(normalizeTask)
 }
 
 const saveToLocalStorage = (tasks) => {
@@ -84,475 +45,45 @@ const saveToLocalStorage = (tasks) => {
   }
 }
 
-const loadFoldersFromLocalStorage = () => {
-  try {
-    const raw = localStorage.getItem(FOLDERS_STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : [defaultFolder]
-    }
-  } catch (error) {
-    console.error('Error loading folders from localStorage:', error)
-  }
-  return [defaultFolder]
-}
-
-const saveFoldersToLocalStorage = (folders) => {
-  try {
-    localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(folders))
-  } catch (error) {
-    console.error('Error saving folders to localStorage:', error)
-  }
-}
-
 export const dataService = {
-  // Check if user is authenticated
-  async isAuthenticated() {
-    if (!supabase) return false
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error) return false
-      return !!user
-    } catch (error) {
-      console.error('Error checking auth:', error)
-      return false
-    }
+  getTasks() {
+    return loadFromLocalStorage()
   },
 
-  // Get current user
-  async getCurrentUser() {
-    if (!supabase) return null
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error) return null
-      return user
-    } catch (error) {
-      console.error('Error getting user:', error)
-      return null
-    }
-  },
-
-  // FOLDER OPERATIONS
-
-  // Get all folders for user
-  async getFolders() {
-    const isAuth = await this.isAuthenticated()
-    
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const { data, error } = await supabase
-          .from('folders')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true })
-
-        if (error) throw error
-
-        const folders = (data || []).map(fromSupabaseFolder)
-        return [defaultFolder, ...folders]
-      } catch (error) {
-        console.error('Error loading folders from Supabase, falling back to localStorage:', error)
-        return [defaultFolder, ...loadFoldersFromLocalStorage().filter(f => f.id !== 'all')]
-      }
-    }
-
-    // Guest mode: use localStorage
-    return [defaultFolder, ...loadFoldersFromLocalStorage().filter(f => f.id !== 'all')]
-  },
-
-  // Add new folder
-  async addFolder(folder) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const supabaseFolder = toSupabaseFolder(folder, user.id)
-        const { data, error } = await supabase
-          .from('folders')
-          .insert([supabaseFolder])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        return fromSupabaseFolder(data)
-      } catch (error) {
-        console.error('Error adding folder to Supabase, falling back to localStorage:', error)
-        const folders = loadFoldersFromLocalStorage()
-        const newFolder = {
-          ...folder,
-          id: String(Date.now()) + Math.random().toString(36).slice(2),
-        }
-        const updatedFolders = [...folders, newFolder]
-        saveFoldersToLocalStorage(updatedFolders)
-        return newFolder
-      }
-    }
-
-    // Guest mode: use localStorage
-    const folders = loadFoldersFromLocalStorage()
-    const newFolder = {
-      ...folder,
-      id: String(Date.now()) + Math.random().toString(36).slice(2),
-    }
-    const updatedFolders = [...folders, newFolder]
-    saveFoldersToLocalStorage(updatedFolders)
-    return newFolder
-  },
-
-  // Update folder
-  async updateFolder(id, updates) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const supabaseUpdates = {
-          name: updates.name,
-          color: updates.color,
-          icon: updates.icon,
-          description: updates.description,
-          updated_at: new Date().toISOString(),
-        }
-
-        const { data, error } = await supabase
-          .from('folders')
-          .update(supabaseUpdates)
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .select()
-          .single()
-
-        if (error) throw error
-
-        return fromSupabaseFolder(data)
-      } catch (error) {
-        console.error('Error updating folder in Supabase, falling back to localStorage:', error)
-        const folders = loadFoldersFromLocalStorage()
-        const updatedFolders = folders.map((f) =>
-          f.id === id ? { ...f, ...updates } : f
-        )
-        saveFoldersToLocalStorage(updatedFolders)
-        return updatedFolders.find((f) => f.id === id)
-      }
-    }
-
-    // Guest mode: use localStorage
-    const folders = loadFoldersFromLocalStorage()
-    const updatedFolders = folders.map((f) =>
-      f.id === id ? { ...f, ...updates } : f
-    )
-    saveFoldersToLocalStorage(updatedFolders)
-    return updatedFolders.find((f) => f.id === id)
-  },
-
-  // Delete folder
-  async deleteFolder(id) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        // Move tasks to default folder (null)
-        await supabase
-          .from('tasks')
-          .update({ folder_id: null })
-          .eq('folder_id', id)
-          .eq('user_id', user.id)
-
-        // Delete folder
-        const { error } = await supabase
-          .from('folders')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id)
-
-        if (error) throw error
-        return true
-      } catch (error) {
-        console.error('Error deleting folder from Supabase, falling back to localStorage:', error)
-        const folders = loadFoldersFromLocalStorage()
-        const updatedFolders = folders.filter((f) => f.id !== id)
-        saveFoldersToLocalStorage(updatedFolders)
-        return true
-      }
-    }
-
-    // Guest mode: use localStorage
-    const folders = loadFoldersFromLocalStorage()
-    const updatedFolders = folders.filter((f) => f.id !== id)
-    saveFoldersToLocalStorage(updatedFolders)
-    return true
-  },
-
-  // TASK OPERATIONS
-  async getTasks(folderId = null) {
-    const isAuth = await this.isAuthenticated()
-    
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        let query = supabase
-          .from('tasks')
-          .select('*')
-          .eq('user_id', user.id)
-
-        // Filter by folder if specified and not "all"
-        if (folderId && folderId !== 'all') {
-          query = query.eq('folder_id', folderId)
-        }
-
-        const { data, error } = await query.order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        // Convert Supabase format to app format
-        const tasks = (data || []).map(fromSupabaseTask)
-        return tasks.length > 0 ? tasks : defaultTasks
-      } catch (error) {
-        console.error('Error loading from Supabase, falling back to localStorage:', error)
-        // Fallback to localStorage if Supabase fails
-        let tasks = loadFromLocalStorage()
-        if (folderId && folderId !== 'all') {
-          tasks = tasks.filter((t) => t.folderId === folderId)
-        }
-        return tasks
-      }
-    }
-
-    // Guest mode: use localStorage
-    let tasks = loadFromLocalStorage()
-    if (folderId && folderId !== 'all') {
-      tasks = tasks.filter((t) => t.folderId === folderId)
-    }
-    return tasks
-  },
-
-  // Add new task
-  async addTask(task) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const supabaseTask = toSupabaseTask(task, user.id)
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert([supabaseTask])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        return fromSupabaseTask(data)
-      } catch (error) {
-        console.error('Error adding to Supabase, falling back to localStorage:', error)
-        // Fallback to localStorage
-        const tasks = loadFromLocalStorage()
-        const newTask = {
-          ...task,
-          id: String(Date.now()) + Math.random().toString(36).slice(2),
-        }
-        const updatedTasks = [...tasks, newTask]
-        saveToLocalStorage(updatedTasks)
-        return newTask
-      }
-    }
-
-    // Guest mode: use localStorage
+  addTask(task) {
     const tasks = loadFromLocalStorage()
-    const newTask = {
+    const newTask = normalizeTask({
       ...task,
-      id: String(Date.now()) + Math.random().toString(36).slice(2),
-    }
-    const updatedTasks = [...tasks, newTask]
-    saveToLocalStorage(updatedTasks)
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      resetCount: 0,
+      date: task.date || new Date().toISOString(),
+    })
+    tasks.push(newTask)
+    saveToLocalStorage(tasks)
     return newTask
   },
 
-  // Update existing task
-  async updateTask(id, updates) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const supabaseUpdates = {
-          label: updates.label,
-          last_done: updates.date,
-          color: updates.color,
-          icon_index: updates.iconIndex ?? 0,
-          folder_id: updates.folderId || null,
-          updated_at: new Date().toISOString(),
-        }
-
-        const { data, error } = await supabase
-          .from('tasks')
-          .update(supabaseUpdates)
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .select()
-          .single()
-
-        if (error) throw error
-
-        return fromSupabaseTask(data)
-      } catch (error) {
-        console.error('Error updating in Supabase, falling back to localStorage:', error)
-        // Fallback to localStorage
-        const tasks = loadFromLocalStorage()
-        const updatedTasks = tasks.map((t) =>
-          t.id === id ? { ...t, ...updates } : t
-        )
-        saveToLocalStorage(updatedTasks)
-        return updatedTasks.find((t) => t.id === id)
-      }
-    }
-
-    // Guest mode: use localStorage
+  updateTask(id, updates) {
     const tasks = loadFromLocalStorage()
-    const updatedTasks = tasks.map((t) =>
-      t.id === id ? { ...t, ...updates } : t
-    )
+    const updatedTasks = tasks.map((t) => (t.id === id ? normalizeTask({ ...t, ...updates }) : t))
     saveToLocalStorage(updatedTasks)
     return updatedTasks.find((t) => t.id === id)
   },
 
-  // Delete task
-  async deleteTask(id) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        const { error } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id)
-
-        if (error) throw error
-        return true
-      } catch (error) {
-        console.error('Error deleting from Supabase, falling back to localStorage:', error)
-        // Fallback to localStorage
-        const tasks = loadFromLocalStorage()
-        const updatedTasks = tasks.filter((t) => t.id !== id)
-        saveToLocalStorage(updatedTasks)
-        return true
-      }
-    }
-
-    // Guest mode: use localStorage
-    const tasks = loadFromLocalStorage()
-    const updatedTasks = tasks.filter((t) => t.id !== id)
-    saveToLocalStorage(updatedTasks)
-    return true
-  },
-
-  // Save all tasks (for batch operations)
-  async saveAllTasks(tasks) {
-    const isAuth = await this.isAuthenticated()
-
-    if (isAuth && supabase) {
-      try {
-        const user = await this.getCurrentUser()
-        if (!user) throw new Error('No user found')
-
-        // Delete all existing tasks for this user
-        await supabase.from('tasks').delete().eq('user_id', user.id)
-
-        // Insert all tasks
-        if (tasks.length > 0) {
-          const supabaseTasks = tasks.map((task) => toSupabaseTask(task, user.id))
-          const { error } = await supabase.from('tasks').insert(supabaseTasks)
-
-          if (error) throw error
-        }
-
-        return true
-      } catch (error) {
-        console.error('Error saving all to Supabase, falling back to localStorage:', error)
-        saveToLocalStorage(tasks)
-        return true
-      }
-    }
-
-    // Guest mode: use localStorage
+  deleteTask(id) {
+    const tasks = loadFromLocalStorage().filter((t) => t.id !== id)
     saveToLocalStorage(tasks)
     return true
   },
 
-  // Migrate localStorage tasks to Supabase (on signup)
-  async migrateLocalToCloud(userId) {
-    if (!supabase) {
-      console.warn('Supabase not configured, cannot migrate')
-      return { success: false, error: 'Supabase not configured' }
-    }
-
-    try {
-      // migrate folders first
-      const localFolders = loadFoldersFromLocalStorage()
-      const userFolders = localFolders.filter((f) => f.id !== 'all' && !f.isDefault)
-
-      if (userFolders.length > 0) {
-        // insert with same ids so tasks can reference them
-        const supabaseFolders = userFolders.map((f) => ({
-          id: f.id,
-          user_id: userId,
-          name: f.name,
-          color: f.color,
-          icon: f.icon,
-          description: f.description,
-          is_default: f.isDefault || false,
-        }))
-        const { error: folderError } = await supabase.from('folders').insert(supabaseFolders)
-        if (folderError) throw folderError
-      }
-
-      const localTasks = loadFromLocalStorage()
-
-      // Filter out default tasks (don't migrate those)
-      const userTasks = localTasks.filter(
-        (task) => !defaultTasks.some((dt) => dt.id === task.id)
-      )
-
-      if (userTasks.length === 0 && userFolders.length === 0) {
-        return { success: true, migrated: 0 }
-      }
-
-      // Convert and insert tasks
-      const supabaseTasks = userTasks.map((task) => toSupabaseTask(task, userId))
-      const {  error } = await supabase.from('tasks').insert(supabaseTasks).select()
-
-      if (error) throw error
-
-      // Clear localStorage after successful migration
-      localStorage.removeItem(STORAGE_KEY)
-      localStorage.removeItem(FOLDERS_STORAGE_KEY)
-
-      return { success: true, migrated: userTasks.length }
-    } catch (error) {
-      console.error('Error migrating tasks:', error)
-      return { success: false, error: error.message }
-    }
+  resetTask(id) {
+    const tasks = loadFromLocalStorage()
+    const task = tasks.find((t) => t.id === id)
+    if (!task) return null
+    const resetCount = (task.resetCount || 0) + 1
+    return this.updateTask(id, {
+      date: new Date().toISOString(),
+      resetCount,
+    })
   },
 }

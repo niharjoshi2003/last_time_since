@@ -1,7 +1,6 @@
 import React from 'react';
-import { Sun, Moon, Heart } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
-import { THEMES } from '../../context/ThemeContext';
+import { Sun, Moon, Flame } from 'lucide-react';
+import { useTheme, THEMES } from '../../context/ThemeContext';
 
 const ThemeSwitcher = () => {
   const { theme, setTheme } = useTheme();
@@ -14,8 +13,9 @@ const ThemeSwitcher = () => {
         onClick={() => setTheme(THEMES.LIGHT)}
         title="Light theme"
         aria-pressed={theme === THEMES.LIGHT}
+        aria-label="Use light theme"
       >
-        <Sun size={18} aria-hidden />
+        <Sun size={20} aria-hidden />
       </button>
       <button
         type="button"
@@ -23,17 +23,19 @@ const ThemeSwitcher = () => {
         onClick={() => setTheme(THEMES.DARK)}
         title="Dark theme"
         aria-pressed={theme === THEMES.DARK}
+        aria-label="Use dark theme"
       >
-        <Moon size={18} aria-hidden />
+        <Moon size={20} aria-hidden />
       </button>
       <button
         type="button"
-        className={`theme-switcher-btn ${theme === THEMES.ULTRA_LOVE ? 'active' : ''}`}
-        onClick={() => setTheme(THEMES.ULTRA_LOVE)}
-        title="Ultra Love theme"
-        aria-pressed={theme === THEMES.ULTRA_LOVE}
+        className={`theme-switcher-btn ${theme === THEMES.CRIMSON_NIGHT ? 'active' : ''}`}
+        onClick={() => setTheme(THEMES.CRIMSON_NIGHT)}
+        title="Crimson Night theme"
+        aria-pressed={theme === THEMES.CRIMSON_NIGHT}
+        aria-label="Use crimson night theme"
       >
-        <Heart size={18} aria-hidden />
+        <Flame size={20} aria-hidden />
       </button>
     </div>
   );

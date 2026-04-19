@@ -9,7 +9,7 @@ import Terms from './pages/Terms';
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<LastTimeSince />} />
           <Route path="/about" element={<About />} />
